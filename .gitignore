@@ -257,7 +257,7 @@ _pkginfo.txt
 # files ending in .cache can be ignored
 *.[Cc]ache
 # but keep track of directories ending in .cache
-!?*.[Cc]ache/
+# !?*.[Cc]ache/ # commenting the exception because other IDEs may use such a generic name too
 
 # Others
 ClientBin/
@@ -430,3 +430,64 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+## EMACS gitignore, reference https://github.com/github/gitignore/blob/main/Global/Emacs.gitignore
+# -*- mode: gitignore; -*-
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+# custom, just in case
+*\#*
+
+# Org-mode
+.org-id-locations
+*_archive
+
+# flymake-mode
+*_flymake.*
+
+# eshell files
+/eshell/history
+/eshell/lastdir
+
+# elpa packages
+/elpa/
+
+# reftex files
+*.rel
+
+# AUCTeX auto folder
+/auto/
+
+# cask packages
+.cask/
+dist/
+
+# Flycheck
+flycheck_*.el
+
+# server auth directory
+/server/
+
+# projectiles files
+.projectile
+
+# directory configuration
+.dir-locals.el
+
+# network security
+/network-security.data
+
+# undo-tree
+*.~undo-tree~
+
+## ccls gitignore, reference https://github.com/Jankatay/serial-experiments/blob/main/.gitignore
+## note: reference project relies on build-EAR, which is why it ignores compile_commands.json
+##       this project does not have to worry about that. That file is normally fine to include.
+*.ccls-cache
+*.ccls
