@@ -1,0 +1,11 @@
+Peer Program:
+Peer program has the responsibility of creating multiple threads so as to communicate with
+other peers as well as the tracker server. It follows the following strategy for downloading
+a file:
+1) Dividing file into segments: The downloading file is divided into many segments, and
+the size of each segment could be defined in any number in advance.
+2) Segment selection: The to-be-downloaded segment(s) is (are) chosen sequentially.
+3) Peer selection: The peer which has the newest timestamp is selected to be connected to
+download the corresponding segment.
+4) Update: Only after downloading a complete segment does a peer update its record file
+and sends information to tell the tracker server that it has this part of the file.

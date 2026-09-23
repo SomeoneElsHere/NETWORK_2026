@@ -1,0 +1,32 @@
+1.
+P2P peer program must also periodically update the tracker server with the fresh
+description of the files it is currently sharing. This is required because the file share might change at the peer as it is still in the process of downloading the file or it might decide to no longer share a particular file anymore. You must make the time interval between
+successive tracker refresh by the peer part of its configuration file. Make this parameter 15
+minutes by default in the peer configuration file.
+2.
+The peer must be able to intelligently create peer requests using GET in order to get
+maximum download speed. Maximum data chunk size must be set to 1024 bytes. P2P
+peers' server thread handling the GET request by other peers must check for the chunk size
+requested and must enforce 1024 bytes upper limit strictly. In case the server thread at the
+peer receives a GET request for file chunk size greater than 1024 bytes, it must respond
+back with an error message <GET invalid>\n
+3.
+Client/Peer must be able to create multiple threads, each thread requesting mutually
+exclusive file chunks from different peers, merging different chunks if possible after each
+thread terminates. This process of downloading the file must automatically start once the
+tracker file has been received successfully. The peer must be aware that the received tracker
+data might not be up to date as the tracker update period interval by peers may be large, so
+it should be prepared for failed TCP connection attempts made on some of the listed peers
+in the tracker file and deal with the situation intelligently. The peer must also be able to
+handle its own failure appropriately. That is peer program when executed must check into
+its local tracker cache and the shared file storage location to see if there
+are still any incomplete files and must try to download the remaining bytes and not start
+the whole process over again. 
+4.
+Once the file is successfully downloaded in its entirety, the
+peer must delete the corresponding tracker file stored in its local cache. The peer must
+contact the tracker server periodically [period of tracker update by peer should be
+read from the configuration file].
+5.
+The client must check for incomplete file chunks in its
+local storage after each period elapses and should ask the tracker server for the latest tracker for only the files which are still incomplete.

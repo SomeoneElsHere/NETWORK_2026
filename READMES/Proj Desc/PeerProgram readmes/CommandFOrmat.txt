@@ -1,0 +1,44 @@
+LIST command format: REQ LIST
+GET command format: GET filename.track
+createtracker: createtracker filename filesize description md5 ip-address port-number
+updatetracker: updatetracker filename start_byte end_byte ipaddress port-number
+
+------
+
+createtracker: message from tracker server to the peer program
+
+if command successful: <createtracker succ>
+if command unsuccessful: <createtracker fail>
+if tracker file already exists: <createtracker ferr>
+
+-----
+
+updatetracker: message from peer to the tracker server
+
+if tracker file does not exist: <updatetracker filename ferr>\n
+if tracker file update successful: <updatetracker filename succ>\n
+any other error / unable to update tracker file: <updatetracker filename fail>\n
+
+-----
+
+LIST – This command is sent by a connected peer to the tracker server to send over to the
+requesting peer the list of (tracker) files in the shared directory at the server. The format
+of the incoming message from the connected peer will be
+<REQ LIST>\n
+In reply to the LIST request the server reply message structure must be:
+<REP LIST X>\n
+<1 file1name file1size file1MD5>\n
+<2 file2name file2size file2MD5>\n
+...
+<x fileXname fileXsize fileXMD5>\n
+<REP LIST END>\n
+
+-----
+
+GET -
+
+<GET filename.track >\n
+The server's response to the GET command must be:
+<REP GET BEGIN>\n
+<tracker_file_content >\n
+<REP GET END FileMD5>\n

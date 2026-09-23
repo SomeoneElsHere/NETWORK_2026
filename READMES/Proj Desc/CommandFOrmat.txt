@@ -1,5 +1,0 @@
-LIST command format: REQ LIST
-GET command format: GET filename.track
-createtracker: createtracker filename filesize description md5
-ip-address port-number
-updatetracker: updatetracker filename start_byte end_byte ipaddress port-number
