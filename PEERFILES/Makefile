@@ -1,6 +1,6 @@
-run: hello.out
-	./hello.out
+run: peer.out
+	./peer.out
 
-hello.out: hello.cpp
-	g++ -o hello.out hello.cpp
+peer.out: peer.cpp
+	g++ -o peer.out peer.cpp -g
 	
