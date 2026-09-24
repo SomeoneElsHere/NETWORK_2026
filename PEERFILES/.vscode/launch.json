@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "cppdbg",
+      "request": "launch",
+      "name": "Peer",
+      "program": "/home/rando/NETWORK_2026/peer.out",
+      "cwd": "/home/rando/NETWORK_2026"
+    },
+    {
+      "type": "cppdbg",
+      "request": "launch",
+      "name": "Tracker",
+      "program": "/home/rando/NETWORK_2026/tracker.out",
+      "cwd": "/home/rando/NETWORK_2026"
+    }
+  ],
+  "compounds": [
+        {
+            "name": "1 Peer",
+            "configurations": ["Peer", "Tracker"]
+        }
+    ]
+}

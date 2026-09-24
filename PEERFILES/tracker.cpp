@@ -6,6 +6,7 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <cerrno>
 
 class tracker
 {
@@ -34,8 +35,12 @@ class tracker
     }
     void Listen()
     {
-        listen(TrackerSocket, 5);
-        sleep(.1);
+        int q = listen(TrackerSocket, 5);
+        if(q == -1)
+        {
+            std::cout << "Failure to listen: " << errno;
+            exit(-1);
+        }
         int i = 0;
         for(i = 0; i < 0; i++)
         {
@@ -48,7 +53,14 @@ class tracker
                 break;
             }
         }
-        PeerSockets.insert(PeerSockets.begin()+i,accept(TrackerSocket, nullptr, nullptr));
+        q = accept(TrackerSocket, nullptr, nullptr);
+        if(q == -1)
+        {
+            std::cout << "Accept failure: "<< errno;
+            exit(-2);
+        }
+        PeerSockets.insert(PeerSockets.begin()+i,q);
+        Accept(i);
     }
     void Accept(int n)
     {
@@ -57,6 +69,7 @@ class tracker
         char buf[1024];
         recv(PeerSockets.at(n),buf,sizeof(buf),0);
         std::string str(buf);
+        std::cout << str;
         try
         {
             PeerInput.at(n);
@@ -87,6 +100,9 @@ class tracker
 
 int main()
 {
-    
+    tracker t;
+    t.Create();
+    t.Listen();
+    //t.Accept(0);
     return 0;
 }
