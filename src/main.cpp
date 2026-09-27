@@ -1,11 +1,12 @@
 #include <iostream>
+#include <bitset>
 #include "util.h"
 
 using namespace std;
 
 int main() {
-  string s = "hello, world";
-  if(!string_pad(s, '0', 16)) cout << "err" << endl;
-  cout << s << endl;
+  const char* file = "./build/main";
+  string res = md5(file);
+  cout << res << endl;
   return 0;
 }
