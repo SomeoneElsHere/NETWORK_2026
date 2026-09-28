@@ -21,7 +21,7 @@ class tracker
     void CreateTracker()
     {
         TrackerAddr.sin_family = AF_INET;
-        TrackerAddr.sin_port = htons(7879);
+        TrackerAddr.sin_port = htons(9999);
         TrackerAddr.sin_addr.s_addr = INADDR_ANY;
         bind(TrackerSocket, (struct sockaddr*)&TrackerAddr, sizeof(TrackerAddr)); //only the program that has the physical socket binds
          
@@ -59,15 +59,19 @@ class tracker
             std::cout << "Accept failure: "<< errno;
             exit(-2);
         }
+        i = 0;
         PeerSockets.insert(PeerSockets.begin()+i,q);
         Accept(i);
     }
     void Accept(int n)
     {
+        char buf[1024];
         while(true)
         {
-        char buf[1024];
-        recv(PeerSockets.at(n),buf,sizeof(buf),0);
+        if( recv(PeerSockets.at(n),buf,sizeof(buf),0) == -1)
+        {
+            return;
+        }
         std::string str(buf);
         std::cout << str;
         try

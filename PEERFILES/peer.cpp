@@ -16,7 +16,7 @@ class peer
     void CreateTracker()
     {
         TrackerAddr.sin_family = AF_INET;
-        TrackerAddr.sin_port = htons(7879);
+        TrackerAddr.sin_port = htons(9999);
         TrackerAddr.sin_addr.s_addr = INADDR_ANY;
         
     }
@@ -46,6 +46,7 @@ class peer
     {
         const char *c = str.c_str();
         send(PeerSocket,c, str.length(),0);
+        close(PeerSocket);
     }
 };
 
