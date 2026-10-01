@@ -495,4 +495,5 @@ flycheck_*.el
 /build/*.out
 /build/peer
 /build/tracker
+/build/threadtest_main
 # /build/<executable name>
