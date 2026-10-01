@@ -491,3 +491,8 @@ flycheck_*.el
 ##       this project does not have to worry about that. That file is normally fine to include.
 *.ccls-cache
 *.ccls
+
+/build/*.out
+/build/peer
+/build/tracker
+# /build/<executable name>
