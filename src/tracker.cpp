@@ -49,8 +49,8 @@ public:
     }
     void Listen() // TODO make this a loop and use multithreading to create threads of method Accept
     {
-        int q = listen(TrackerSocket, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
-        if (q == -1)
+        int p = listen(TrackerSocket, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
+        if (p == -1)
         {
             std::cout << "Failure to listen: " << errno;
             exit(-1);
@@ -65,7 +65,7 @@ public:
                     if (PeerSockets.at(index) == 0)
                     {
                         PeerSockets.erase(PeerSockets.begin() + index);
-                        return;
+                        break;
                     }
                 }
                 catch (const std::exception e)
@@ -73,7 +73,7 @@ public:
                     break;
                 }
             }
-            q = accept(TrackerSocket, nullptr, nullptr); // accept any addr, no restrictions (FD,no restrict, no restrict), q is peer fd
+            int q = accept(TrackerSocket, nullptr, nullptr); // accept any addr, no restrictions (FD,no restrict, no restrict), q is peer fd
             if (q == -1)
             {
                 std::cout << "Accept failure: " << errno;
@@ -82,7 +82,7 @@ public:
             // i = 0; //debug for 1 peer
             PeerSockets.insert(PeerSockets.begin() + index, q); // insert the ith peer fd at the last index.
             std::thread t = std::thread(&tracker::Accept,this,std::ref(index));
-                                                 // accept the ith peer
+            t.detach();
         }
     }
     void Accept(int n)
@@ -92,6 +92,10 @@ public:
         {
             if (recv(PeerSockets.at(n), buf, sizeof(buf), 0) <= 0) // if failure to recieve stop. Store data at buf
             {
+                close(PeerSockets.at(n));
+                PeerSockets.erase(PeerSockets.begin()+n);
+                PeerSockets.insert(PeerSockets.begin()+n,0);
+                bind(TrackerSocket, (struct sockaddr *)&TrackerAddr, sizeof(TrackerAddr)); 
                 return;
             }
             std::string str(buf); // convert  buf to a string
