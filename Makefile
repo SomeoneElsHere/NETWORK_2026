@@ -59,4 +59,4 @@ run: $(EXE_NAMES)
 .PHONY: clean
 clean:
 	rm -f $(BUILD_DIR)*.out
-	rm -f $(BUILD_DIR)$(EXE_NAMES)
+	rm -f $(EXE_NAMES)
