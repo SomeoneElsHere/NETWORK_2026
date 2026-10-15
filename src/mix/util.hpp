@@ -21,7 +21,7 @@ std::string md5(const char* file) {
 // For calling with c++ types
 // ---------------------------------------------------------------------
 string md5(string file) { return md5(file.c_str()); }
-string md5(path file) { return md5(file.string()); }
+string md5(path& file) { return md5(file.string()); }
 
 
 // extended addrinfo struct to manage a network connection
@@ -74,25 +74,33 @@ string epoch_to_uptime(time_t epoch) {
 }
 
 
-// convert binary address to string of form "127.0.0.1:9999" (as example)
-// returns empty on error (or NULL info)
+// get the port from addrinfo
+// returns -1 on error
 // ---------------------------------------------------------------------
-string addrinfo_to_string(addrinfo* info) {
-  if(!info) return NULL; // sanitize
+long int port_from_addrinfo(addrinfo* info) {
+  if(!info) return 0; // sanitize
 
   // get address and port
-  char host[NI_MAXHOST], serv[NI_MAXSERV];
+  char serv[NI_MAXSERV] = "";
   int err_status = getnameinfo(info->ai_addr, info->ai_addrlen,
-                        host, NI_MAXHOST, serv, NI_MAXSERV,
-                        NI_NUMERICHOST | NI_NUMERICSERV);
+                               NULL, 0, serv, NI_MAXSERV, NI_NUMERICSERV);
+  if(err_status) return -1; // error
 
-  // error
-  if(err_status) return ""; 
+  // convert to base-10 int
+  char* endptr = NULL;
+  long int ret = strtol(serv, &endptr, 10);
 
-  // success, concat and return
-  return string(host) + ":" + serv;
+  // sanitize and return
+  if(!endptr) return -1;
+  if(*endptr) return -1;
+  return ret;
 }
 
+
+// send string to socket
+ssize_t send_string(int sockfd, string& msg) {
+  return send(sockfd, msg.c_str(), msg.length(), 0);
+}
 
 
 #endif
