@@ -8,7 +8,8 @@
 #include <vector>
 #include <cerrno>
 #include <functional>
-
+#include <map>
+#include <arpa/inet.h>
 // TOTAL TODOS
 // Line 21: Verify peersockets and peerinput has proper string data
 // Line 52: Add Multithreading to process multiple peers at the same time
@@ -20,6 +21,8 @@ public:
     int TrackerSocket = 0;
     // insert an empty string in the socket/ array if they leave pls :D - Natalie
     int PeerSockets[256];
+
+    std::map<std::string, std::string> PeerInputStore = std::map<std::string, std::string>();
     /*
     Peersockets is a vector with every single peer fd that is connected. For ease of tracking in the forloops,
     change the disconeccted client from a fd to 0
@@ -39,6 +42,12 @@ public:
     We need to add a dictionary to check the IP+MAC addr and save the current file there.
     Program will change this dictionary when  recvBytes <= 0 (Around line 140)
     */
+
+    struct acceptArgs
+    {
+        std::string IPADDR;
+        int index;
+    };
 
     void CreateTracker() // tracker profile (see peer)
     {
@@ -98,7 +107,7 @@ public:
                 
                 continue;
             }
-           
+
             
             int index = 0;
             for (index = 0; index < 256; index++) // get first empty peersocket
@@ -106,7 +115,6 @@ public:
                 
                 if (PeerSockets[index] == 0)
                 {
-                    
                     break;
                 }
             }
@@ -115,24 +123,60 @@ public:
                 
                 continue;
             }
+
             
-            int q = accept(TrackerSocket, 0, 0); // accept any addr, no restrictions (FD,no restrict, no restrict), q is peer fd
             
+            
+            sockaddr_in socklen;
+            socklen.sin_family = AF_INET;
+            in_addr addr;
+            addr.s_addr = INADDR_ANY;
+            socklen.sin_addr = addr;
+            socklen.sin_port = TrackerAddr.sin_port;
+            socklen_t sockklen;
+            sockklen = 4;
+            
+            
+
+            int q = accept(TrackerSocket,(struct sockaddr*)&socklen, &sockklen); // accept any addr,  q is peer fd
             if (q == -1)
             {
                 std::cout << "Accept failure: " << errno << std::endl;
                 exit(-2);
             }
+
+            
+            sockaddr_in IPV4 = (sockaddr_in)socklen;
+            char ipaddr[INET_ADDRSTRLEN];
+            inet_ntop( AF_INET, &(IPV4.sin_addr), ipaddr, INET_ADDRSTRLEN ); //get ip as char*
+            
+            std::string Ipaddrstring(ipaddr); 
+            try
+            {
+                PeerInputStore.at(Ipaddrstring); //does the IP already exist?
+                
+            }
+            catch(...)
+            {
+                PeerInputStore[Ipaddrstring] = ""; //if not, create new handle for IP
+            }
+            
+
+            
             // i = 0; //debug for 1 peer
             PeerSockets[index] = q; // insert the ith peer fd at the last index.
-            std::thread t = std::thread(&tracker::Accept,this,std::ref(index));
+            acceptArgs arg;
+            arg.index = index;
+            arg.IPADDR = Ipaddrstring;
+            std::thread t = std::thread(&tracker::Accept,this,arg);
             
             t.detach();
             
         }
     }
-    void Accept(int n)
+    void Accept(acceptArgs arg)
     {
+        int n = arg.index;
         char buf[1024];
         while (true)
         {
@@ -140,8 +184,9 @@ public:
             if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
             {
                 close(PeerSockets[n]);
-                PeerSockets[n] = 0;
-                //PeerInput[n] = "";
+                
+                PeerInputStore[arg.IPADDR] = PeerInputStore[arg.IPADDR] + PeerInput[n];
+                PeerInput[n] = "";
                 //std::cout << "abort" << std::endl;
                 //fflush(NULL);
                 return;
@@ -150,9 +195,10 @@ public:
             std::string str(buf); // convert  buf to a string
             PeerInput[n] = PeerInput[n]+str;
             // output string (debug)
-            std::cout << "["<< n << "]" << "["<< recvBytes << "]"<< str << " : " << PeerInput[n] << std::endl;
+            std::cout << "["<< n << "]" << "["<< recvBytes << "]"<< str << " : " << PeerInputStore[arg.IPADDR] << std::endl;
             
         }
+        
     }
 };
 
@@ -162,5 +208,6 @@ int main()
     t.Create(); // create the tracker socket
     t.Listen(); // listen for the peer connection and recieve data
     // t.Accept(0); debug
+    
     return 0;
 }
