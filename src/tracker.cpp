@@ -20,9 +20,13 @@ public:
     sockaddr_in TrackerAddr;
     int TrackerSocket = 0;
     // insert an empty string in the socket/ array if they leave pls :D - Natalie
-    int PeerSockets[256];
+    
 
     std::map<std::string, std::string> PeerInputStore = std::map<std::string, std::string>();
+    /*
+    PeerInputStore stores the data of the file per IP with a IP->File lookup
+    */
+   int PeerSockets[256];
     /*
     Peersockets is a vector with every single peer fd that is connected. For ease of tracking in the forloops,
     change the disconeccted client from a fd to 0
@@ -33,15 +37,7 @@ public:
     add onto the nth string. If the nth peer disconnects, put the string as empty so that a new peersocket can use it.
     Can change to a binary format if needed.
     */
-    // Needlessly adding to the peerinput and peersocket without trying to use empty slots like shown will add more and more to the
-    // vector untill it cant hold anymore. Doing it this way conserves memory.
-
-    //TODO: Add a place to store input based on IP+MAC
-    /*
-    Peer input right now only saves the input temporarily based on buffer.
-    We need to add a dictionary to check the IP+MAC addr and save the current file there.
-    Program will change this dictionary when  recvBytes <= 0 (Around line 140)
-    */
+    
 
     struct acceptArgs
     {
@@ -127,18 +123,18 @@ public:
             
             
             
-            sockaddr_in socklen;
-            socklen.sin_family = AF_INET;
+            sockaddr_in sockaddr_client; //where the addr of an IP from a client is stored
+            sockaddr_client.sin_family = AF_INET;
             in_addr addr;
             addr.s_addr = INADDR_ANY;
-            socklen.sin_addr = addr;
-            socklen.sin_port = TrackerAddr.sin_port;
+            sockaddr_client.sin_addr = addr;
+            sockaddr_client.sin_port = TrackerAddr.sin_port;
             socklen_t sockklen;
             sockklen = 4;
             
             
 
-            int q = accept(TrackerSocket,(struct sockaddr*)&socklen, &sockklen); // accept any addr,  q is peer fd
+            int q = accept(TrackerSocket,(struct sockaddr*)&sockaddr_client, &sockklen); // accept any addr,  q is peer fd
             if (q == -1)
             {
                 std::cout << "Accept failure: " << errno << std::endl;
@@ -146,7 +142,7 @@ public:
             }
 
             
-            sockaddr_in IPV4 = (sockaddr_in)socklen;
+            sockaddr_in IPV4 = (sockaddr_in)sockaddr_client;
             char ipaddr[INET_ADDRSTRLEN];
             inet_ntop( AF_INET, &(IPV4.sin_addr), ipaddr, INET_ADDRSTRLEN ); //get ip as char*
             
@@ -170,7 +166,7 @@ public:
             arg.IPADDR = Ipaddrstring;
             std::thread t = std::thread(&tracker::Accept,this,arg);
             
-            t.detach();
+            t.detach(); //let it do its thang
             
         }
     }
@@ -187,8 +183,6 @@ public:
                 
                 PeerInputStore[arg.IPADDR] = PeerInputStore[arg.IPADDR] + PeerInput[n];
                 PeerInput[n] = "";
-                //std::cout << "abort" << std::endl;
-                //fflush(NULL);
                 return;
             }
             
