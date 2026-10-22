@@ -32,38 +32,20 @@ public:
   constexpr static char REP_GET_HEADER[] = "REP GET BEGIN\n";
   const string REP_GET_FOOTER = "REP GET END";
 
+  // Search for a tracker file and return the iterator to it.
+  TrackerFile search_trackerfile(string& name);
+
 private:
   // helper functions to handle commands
   bool proc_list(string& cmd, int sockfd);
-  bool proc_get(string& cmd);
+  bool proc_get(vector<string>& cmd, int sockfd);
   bool proc_create(string& cmd){return true;}
   bool proc_update(string& cmd){return true;}
 
-  // makes a list of connection configurations to try
-  struct addrinfo* make_connection_list(const char* port); 
+
+  // find a tracker file by string name
+  TrackerFile search_file(string& name);
 };
-
-
-// returns list of configurations that can start an ipv4 tcp server to bind to
-// returns NULL on error
-// ---------------------------------------------------------------------
-struct addrinfo* Tracker::make_connection_list(const char* port) {
-  // init options
-  struct addrinfo addropts = {};
-  addropts.ai_family = AF_INET;       // ipv4
-  addropts.ai_socktype = SOCK_STREAM; // tcp
-  addropts.ai_flags = AI_PASSIVE;     // bind-able
-
-  // make a list of all configurations with those options
-  struct addrinfo* addrList = NULL;
-  err_status = getaddrinfo(NULL, port, &addropts, &addrList) < 0;
-  if(err_status) {
-    fprintf(stderr, "ERROR - getaddrinfo -> %s:%d\n", __FILE__, __LINE__);
-    return NULL;
-  }
- 
-  return addrList; // success
-}
 
 
 // create a tracker and bind it to `port`
@@ -183,10 +165,22 @@ bool Tracker::proc_list(string& cmd, int sockfd) {
 // Returns true on success, false if command is different.
 // Sets err_status true on error and returns false.
 // ----------------------------------------------------------------------------
-bool proc_get(string& cmd, int sockfd) {
+bool Tracker::proc_get(vector<string>& cmd, int sockfd) {
   if(err_status) return false;
-  if(cmd)
+  if(cmd.size() != 2) return false;
+  return true;
 }
 
+
+// Search for a tracker file and return the iterator to it.
+// Returns tracker_files.end() on error
+// ----------------------------------------------------------------------------
+TrackerFile Tracker::search_trackerfile(string& name) {
+  for(TrackerFile& file : tracker_files) {
+    if(!file.has_filename(name)) continue;
+    return file;
+  }
+  return {};
+}
 
 #endif

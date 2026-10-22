@@ -28,6 +28,7 @@ private:
   string md5;
 public:
   string quickstring; // Of form "file1name file1MD5\n"
+  bool has_filename(string& compare) { return filename == compare; }
 };
 
 

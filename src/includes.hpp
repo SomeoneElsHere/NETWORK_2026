@@ -6,6 +6,8 @@
 // standard
 #include <string>
 #include <list>
+#include <vector>
+#include <algorithm>
 #include <filesystem>
 using namespace std;
 using namespace filesystem;

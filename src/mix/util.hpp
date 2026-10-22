@@ -4,11 +4,55 @@
 // Utility functions and wrappers for general usage 
 #include "../includes.hpp"
 
+// returns list of configurations that can start an ipv4 tcp server to bind to
+// returns NULL on error
+// ---------------------------------------------------------------------
+struct addrinfo* make_connection_list(const char* port) {
+  // init options
+  struct addrinfo addropts = {};
+  addropts.ai_family = AF_INET;       // ipv4
+  addropts.ai_socktype = SOCK_STREAM; // tcp
+  addropts.ai_flags = AI_PASSIVE;     // bind-able
+
+  // make a list of all configurations with those options
+  struct addrinfo* addrList = NULL;
+  int err_status = getaddrinfo(NULL, port, &addropts, &addrList) < 0;
+  if(err_status) {
+    fprintf(stderr, "ERROR - getaddrinfo -> %s:%d\n", __FILE__, __LINE__);
+    return NULL;
+  }
+ 
+  return addrList; // success
+}
+
+
+
+// split a string into vectors around 'delim'
+// ---------------------------------------------------------------------
+vector<string> strsplit(string& str, string& delim) {
+  // init
+  if(str.empty()) return vector<string>{};
+  vector<string> ret = {};
+  int prev = 0;
+
+  // loop over finding the substr and adding to ret
+  for(int tmp = 0; tmp < std::string::npos; prev = tmp+1) {
+    tmp = str.find(delim, prev);
+    printf("%d, %d\n", prev, tmp);
+    if(tmp >= std::string::npos) break;
+    size_t len = tmp - prev;
+    ret.push_back(str.substr(prev, len));
+  }
+
+  // finish return
+  ret.push_back(str.substr(prev));
+  return ret;
+}
 
 // Wrapper to calculate md5 easily
 // Returns empty string on error
 // ---------------------------------------------------------------------
-std::string md5(const char* file) {
+string md5(const char* file) {
   char buf[MD5_DIGEST_STRING_LENGTH];
   MD5_CTX context = {};
   MD5Init(&context);
