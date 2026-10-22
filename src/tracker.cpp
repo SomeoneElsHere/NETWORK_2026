@@ -7,115 +7,195 @@
 #include <thread>
 #include <vector>
 #include <cerrno>
+#include <functional>
+#include <map>
+#include <arpa/inet.h>
 
 //TOTAL TODOS
 //Line 21: Verify peersockets and peerinput has proper string data
 //Line 52: Add Multithreading to process multiple peers at the same time
 
+/**
+ * A tracker server
+ */
 class tracker
 {
-    public:
+public:
     sockaddr_in TrackerAddr;
-    int TrackerSocket;
-    //insert an empty string in the socket/ array if they leave pls :D - Natalie
-    //TODO- Verify peersockets and peerinput is working
-    std::vector<int> PeerSockets; 
-    /*
-    Peersockets is a vector with every single peer fd that is connected. For ease of tracking in the forloops,
-    change the disconeccted client from a fd to 0
-    */
-    std::vector<std::string> PeerInput; 
-    /*
-    PeerInput is a vector with strings. The nth string is connected to the nth peer and so on. The nth peer will
-    add onto the nth string. If the nth peer disconnects, put the string as empty so that a new peersocket can use it.
-    Can change to a binary format if needed.
-    */
-    //Needlessly adding to the peerinput and peersocket without trying to use empty slots like shown will add more and more to the 
-    //vector untill it cant hold anymore. Doing it this way conserves memory.
-
+    int TrackerSocket = 0;
+    // insert an empty string in the socket/ array if they leave pls :D - Natalie
     
-    void CreateTracker() //tracker profile (see peer)
+    /**
+     * PeerInputStore stores the data of the file per IP with a IP->File lookup
+     */
+    std::map<std::string, std::string> PeerInputStore = std::map<std::string, std::string>();
+    
+    /**
+     * Peersockets is a vector with every single peer fd that is connected. For ease of tracking in the forloops,
+     * change the disconeccted client from a fd to 0
+     */
+    int PeerSockets[256];
+
+    /**
+     * PeerInput is a vector with strings. The nth string is connected to the nth peer and so on. The nth peer will
+     * add onto the nth string. If the nth peer disconnects, put the string as empty so that a new peersocket can use it.
+     * Can change to a binary format if needed.
+     */
+    std::string PeerInput[256];
+    
+    /**
+     * Create tracker profile (see peer)
+     */
+    void CreateTracker()
     {
-        TrackerAddr.sin_family = AF_INET;  //tracker profile (see peer)
-        TrackerAddr.sin_port = htons(9999);
+        TrackerAddr.sin_family = AF_INET; // tracker profile (see peer)
+        TrackerAddr.sin_port = htons(10101);
         TrackerAddr.sin_addr.s_addr = INADDR_ANY;
-        bind(TrackerSocket, (struct sockaddr*)&TrackerAddr, sizeof(TrackerAddr)); //only the program that has the physical socket binds
-         
-    }
-    void Create()
-    {
-        TrackerSocket = socket(AF_INET, SOCK_STREAM, 0); //Create tracker socket to recieve (IPv4,TCP,automatic protocol)
-        
-        CreateTracker();
-        
-    }
-    void Listen() //TODO make this a loop and use multithreading to create threads of method Accept
-    {
-        int q = listen(TrackerSocket, 5); //listen for max 5 clients in que. This prepares the FD to accept after connect from peer
-        if(q == -1)
+        int o = 1;
+        if(setsockopt(TrackerSocket,SOL_SOCKET,SO_REUSEADDR,&o,sizeof(int))<0)
         {
-            std::cout << "Failure to listen: " << errno;
+            std::cout << "Opt failure: " << errno << std::endl;
             exit(-1);
         }
-        int i = 0; 
-        for(i = 0; i < 0; i++) //get first empty peersocket and set it to i
+        if(bind(TrackerSocket, (struct sockaddr *)&TrackerAddr, sizeof(TrackerAddr))<0)
         {
-            try
+            std::cout << "Bind failure: " << errno << std::endl;
+            close(TrackerSocket);
+            exit(-1);
+        }
+    }
+
+    /**
+     * 
+     */
+    void Create()
+    {
+        TrackerSocket = socket(AF_INET, SOCK_STREAM, 0); // Create tracker socket to recieve (IPv4,TCP,automatic protocol)
+        for(int i = 0; i< 256; i++)
+        {
+            PeerSockets[i] = 0;
+            PeerInput[i] = "";
+        }
+        CreateTracker();
+    }
+
+    /**
+     *
+     */
+    void Listen()
+    {
+        int p = listen(TrackerSocket, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
+        
+        if (p == -1)
+        {
+            std::cout << "Failure to listen: " << errno << std::endl;
+            exit(-1);
+        }
+        while (true)
+        {
+            fd_set fds;
+            FD_ZERO(&fds);
+            FD_SET(TrackerSocket, &fds);
+
+            //timeout (needed or select will stall)
+            struct timeval tm;
+            tm.tv_usec = 100;
+            tm.tv_sec = 0;
+
+            int sel = select(TrackerSocket+1,&fds, NULL,NULL,&tm); //put timeout in final para
+            if(sel <= 0)
             {
-                if(PeerSockets.at(i) == 0)
+                continue;
+            }
+            
+            int index = 0;
+            for (index = 0; index < 256; index++) // get first empty peersocket
+            {
+                if (PeerSockets[index] == 0)
                 {
-                    PeerSockets.erase(PeerSockets.begin()+i);
-                    return;
+                    break;
                 }
             }
-            catch(const std::exception e)
+            if(index == 256)
             {
-                break;
+                continue;
             }
-        }
-        q = accept(TrackerSocket, nullptr, nullptr); //accept any addr, no restrictions (FD,no restrict, no restrict), q is peer fd
-        if(q == -1)
-        {
-            std::cout << "Accept failure: "<< errno;
-            exit(-2);
-        }
-        //i = 0; //debug for 1 peer
-        PeerSockets.insert(PeerSockets.begin()+i,q); //insert the ith peer fd at the last index.
-        Accept(i); //accept the ith peer
-    }
-    void Accept(int n)
-    {
-        char buf[1024];
-        while(true)
-        {
-        if( recv(PeerSockets.at(n),buf,sizeof(buf),0) <= 0) // if failure to recieve stop. Store data at buf
-        {
-            return;
-        }
-        std::string str(buf); //convert  buf to a string
-        try //try to add string from peer i to a string vector Tracker saves at Peerinput
-        {
-            PeerInput.at(n); //check if the nth peer string exists
-            PeerInput.erase(PeerInput.begin()+n);
-            PeerInput.insert(PeerInput.begin()+n,str);
 
+            
+            sockaddr_in sockaddr_client; //where the addr of an IP from a client is stored
+            sockaddr_client.sin_family = AF_INET;
+            in_addr addr;
+            addr.s_addr = INADDR_ANY;
+            sockaddr_client.sin_addr = addr;
+            sockaddr_client.sin_port = TrackerAddr.sin_port;
+            socklen_t sockklen;
+            sockklen = 4;
+            
 
-        }
-        catch(const std::exception& e)
-        {
+            int q = accept(TrackerSocket,(struct sockaddr*)&sockaddr_client, &sockklen); // accept any addr,  q is peer fd
+            if (q == -1)
+            {
+                std::cout << "Accept failure: " << errno << std::endl;
+                exit(-2);
+            }
+
+            
+            sockaddr_in IPV4 = (sockaddr_in)sockaddr_client;
+            char ipaddr[INET_ADDRSTRLEN];
+            inet_ntop( AF_INET, &(IPV4.sin_addr), ipaddr, INET_ADDRSTRLEN ); //get ip as char*
+            
+            std::string Ipaddrstring(ipaddr); 
             try
             {
-            PeerInput.insert(PeerInput.begin()+n,str); //if nplace in peerinput does not exist
+                PeerInputStore.at(Ipaddrstring); //does the IP already exist?
+                
             }
-            catch(const std::exception& e)
+            catch(...)
             {
-            PeerInput.insert(PeerInput.begin()+n-1,str); // if weird stuff happens (this shouldnt call)
+                PeerInputStore[Ipaddrstring] = ""; //if not, create new handle for IP
             }
+            
+            // i = 0; //debug for 1 peer
+            PeerSockets[index] = q; // insert the ith peer fd at the last index.
+            acceptArgs arg;
+            arg.index = index;
+            arg.IPADDR = Ipaddrstring;
+            std::thread t = std::thread(&tracker::Accept,this,arg);
+            
+            t.detach(); //let it do its thang
         }
-        //output string
-        std::cout << str << std::endl;
+    }
 
-        
+    struct acceptArgs
+    {
+        std::string IPADDR;
+        int index;
+    };
+
+    /**
+     * Accepts a peer string
+     * @param arg The arguments to use for accepting the peer string
+     */
+    void Accept(acceptArgs arg)
+    {
+        int n = arg.index;
+        char buf[1024];
+        while (true)
+        {
+            int recvBytes = recv(PeerSockets[n], buf, sizeof(buf), 0);
+            if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
+            {
+                close(PeerSockets[n]);
+                
+                PeerInputStore[arg.IPADDR] = PeerInputStore[arg.IPADDR] + PeerInput[n];
+                PeerInput[n] = "";
+                return;
+            }
+            
+            std::string str(buf); // convert  buf to a string
+            PeerInput[n] = PeerInput[n]+str;
+            // output string (debug)
+            std::cout << "["<< n << "]" << "["<< recvBytes << "]"<< str << " : " << PeerInputStore[arg.IPADDR] << std::endl;
         }
     }
     
@@ -124,8 +204,9 @@ class tracker
 int main()
 {
     tracker t;
-    t.Create(); //create the tracker socket
+    t.Create(); // create the tracker socket
     t.Listen(); // listen for the peer connection and recieve data
-    //t.Accept(0); debug
+    // t.Accept(0); debug
+    
     return 0;
 }
