@@ -8,7 +8,7 @@ COMMON_FLAGS = -g -std=c++$(CPP_VERSION)
 PEER_EXE = $(BUILD_DIR)peer
 TRACKER_EXE = $(BUILD_DIR)tracker
 
-EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
+EXE_FILES = $(PEER_EXE) $(TRACKER_EXE)
 
 # -- Command formatting --
 # ------------------------
@@ -21,18 +21,21 @@ LINK = g++ $(COMMON_FLAGS) -o
 # -------------------------
 
 # Ensure all executables are built when running "make"
-all: $(EXE_NAMES)
+all: $(EXE_FILES)
+
+$(BUILD_DIR): 
+	mkdir -p $(BUILD_DIR)
 
 # -- Peer program --
 # ------------------
 PEER_OBJS = $(BUILD_DIR)peer.out
 
 # Main executable
-$(BUILD_DIR)peer: $(PEER_OBJS)
+$(PEER_EXE): $(PEER_OBJS) | $(BUILD_DIR)
 	$(LINK) $(PEER_EXE) $(PEER_OBJS)
 
 # peer.out
-$(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp
+$(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp | $(BUILD_DIR)
 	$(COMPILE) $(SRC_DIR)peer.cpp -o $(BUILD_DIR)peer.out
 
 # -- Tracker program --
@@ -40,11 +43,11 @@ $(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp
 TRACKER_OBJS = $(BUILD_DIR)tracker.out
 
 # Main executable
-$(BUILD_DIR)tracker: $(TRACKER_OBJS)
+$(TRACKER_EXE): $(TRACKER_OBJS) | $(BUILD_DIR)
 	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS)
 
 # tracker.out
-$(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp
+$(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp | $(BUILD_DIR)
 	$(COMPILE) $(SRC_DIR)tracker.cpp -o $(BUILD_DIR)tracker.out
 
 # -- Additional Actions --
@@ -52,11 +55,10 @@ $(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp
 
 # Run tracker in background, wait one second, then run peer
 .PHONY: run
-run: $(EXE_NAMES)
+run: $(EXE_FILES)
 	$(TRACKER_EXE) & sleep 1; $(PEER_EXE)
 
 # Clean the build folder
 .PHONY: clean
 clean:
-	rm -f $(BUILD_DIR)*.out
-	rm -f $(BUILD_DIR)$(EXE_NAMES)
+	rm -f $(BUILD_DIR)*.out $(EXE_FILES)
