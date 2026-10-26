@@ -26,9 +26,21 @@ private:
   size_t filesize;
   string description; // empty if none
   string md5;
+  string address;
 public:
-  string quickstring; // Of form "file1name file1MD5\n"
+  string quickstring; // Of form "file1name file1size file1MD5\n"
   bool has_filename(string& compare) { return filename == compare; }
+  TrackerFile(string filenam, string filesiz, string desc, string md, string addr) {
+    //TODO: sanitize the strtoll
+    filename = filenam;
+    char* endptr = NULL;
+    filesize = strtoll(filesiz.c_str(), &endptr, 10);
+    description = desc;
+    md5 = md;
+    address = addr;
+    quickstring = filenam + " " + filesiz + " " + md + "\n";
+  };
+  TrackerFile(): filename{}, filesize{}, description{}, md5{}, address{} {}
 };
 
 

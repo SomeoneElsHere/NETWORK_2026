@@ -4,12 +4,12 @@
 #include "../includes.hpp"
 constexpr int LISTEN_BACKLOG = 50; // how many connections to listen for at once
 
+
 class Tracker {
   // variables
   pthread_mutex_t worker_lock = PTHREAD_MUTEX_INITIALIZER; // workers will use this to stay sync'd
   list<TrackerFile> tracker_files = {};                    // list of tracker files.
   AddrinfoExt tracker_info = {};  // Info on self. Address, port, socket, etc.
-  //list<int> connections = {};     // lists have faster insertion/deletion than vector
   time_t start_time = -1;         // when the server was first started, read-only.
 
 public: 
@@ -26,23 +26,10 @@ public:
     pthread_mutex_destroy(&worker_lock);
   } 
 
-  // constants with scope basically
-  const string REP_LIST_HEADER = "REP LIST\n";
-  constexpr static char REP_LIST_FOOTER[] = "REP LIST END\n";
-  constexpr static char REP_GET_HEADER[] = "REP GET BEGIN\n";
-  const string REP_GET_FOOTER = "REP GET END";
-
   // Search for a tracker file and return the iterator to it.
-  TrackerFile search_trackerfile(string& name);
+  bool send_trackerfile(string& name, int sockfd);
 
 private:
-  // helper functions to handle commands
-  bool proc_list(string& cmd, int sockfd);
-  bool proc_get(vector<string>& cmd, int sockfd);
-  bool proc_create(string& cmd){return true;}
-  bool proc_update(string& cmd){return true;}
-
-
   // find a tracker file by string name
   TrackerFile search_file(string& name);
 };
@@ -121,66 +108,25 @@ void Tracker::print_status() {
 // for now just accepts all connections, adds them to the list, and starts a thread for them
 // ---------------------------------------------------------------------
 void Tracker::run() {
-  char host[NI_MAXHOST], serv[NI_MAXSERV];
+  char host[NI_MAXHOST];
   sockaddr_in addr = {};
-  socklen_t alen = -1;
+  socklen_t alen = sizeof addr;
 
   while(true) {
-    int s = accept(tracker_info.sockfd, (sockaddr*)&addr, &alen);
-    if(s < 0) continue; // ignore errors
-    s = getnameinfo((sockaddr*)&addr, alen, host, NI_MAXHOST, serv, NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV);
-    if(s != 0) printf("New connection from %s:%s\n", host, serv);
-    //TODO: ptrhreads
+    int client_sockfd = accept(tracker_info.sockfd, (sockaddr*)&addr, &alen);
+    if(client_sockfd < 0) {
+      fprintf(stderr, "ERROR - accept %d -> %s:%d\n", errno, __FILE__, __LINE__);
+      continue; 
+    }
+    int name_error = getnameinfo((sockaddr*)&addr, alen, host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+    if(!name_error) printf("New connection from %s\n", host);
+    pthread_t tid;
+    TrackerBox box = { tracker_files, worker_lock, client_sockfd };
+    pthread_create(&tid, NULL, proc_tracker_all, &box);
   }
 }
 
-
-// If command is in fact for listing, send list of tracker files to the socket.
-// Returns true on success, false if command is different.
-// Sets err_status true on error and returns false.
-// ----------------------------------------------------------------------------
-bool Tracker::proc_list(string& cmd, int sockfd) {
-  if(err_status) return false;
-  if(cmd != "REQ LIST\n") return false;
-  size_t len = tracker_files.size();
-
-  // header
-  string msg = REP_LIST_HEADER + " " + to_string(len) + "\n";
-  send_string(sockfd, msg);
-
-  // body
-  int idx = 0;
-  for(const TrackerFile& tracker_file : tracker_files) {
-    msg = to_string(idx++) + " " + tracker_file.quickstring;
-    send_string(sockfd, msg);
-  }
-
-  // footer
-  send(sockfd, REP_LIST_FOOTER, sizeof REP_LIST_FOOTER, 0);
-  return true;
-}
-
-
-// If command is in fact for get, parse it and send answer through the socket
-// Returns true on success, false if command is different.
-// Sets err_status true on error and returns false.
-// ----------------------------------------------------------------------------
-bool Tracker::proc_get(vector<string>& cmd, int sockfd) {
-  if(err_status) return false;
-  if(cmd.size() != 2) return false;
-  return true;
-}
-
-
-// Search for a tracker file and return the iterator to it.
-// Returns tracker_files.end() on error
-// ----------------------------------------------------------------------------
-TrackerFile Tracker::search_trackerfile(string& name) {
-  for(TrackerFile& file : tracker_files) {
-    if(!file.has_filename(name)) continue;
-    return file;
-  }
-  return {};
-}
 
 #endif
+
+// TODO: modularize the proc_ functions

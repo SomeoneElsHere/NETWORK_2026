@@ -1,5 +1,5 @@
 # compiler and standards
-CPP = g++ # -Wall -Wextra
+CPP = g++ -g # -Wall -Wextra
 
 # message digest library dependencies, flags, and linking
 MD_DEPS = src/libmd/libmd.a src/libmd/md5.h
@@ -12,7 +12,7 @@ UTIL_FLAGS = ${MD_FLAGS}
 UTIL_LIBS = ${MD_LIBS}
 
 # libtracker, depends on libutil (local)
-TRACKER_DEPS = src/tracker/tracker.hpp ${UTIL_DEPS}
+TRACKER_DEPS = src/tracker/tracker.hpp src/tracker/worker.hpp ${UTIL_DEPS}
 TRACKER_FLAGS = ${UTIL_FLAGS}
 TRACKER_LIBS = ${UTIL_LIBS}
 

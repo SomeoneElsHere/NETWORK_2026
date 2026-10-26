@@ -26,10 +26,9 @@ struct addrinfo* make_connection_list(const char* port) {
 }
 
 
-
 // split a string into vectors around 'delim'
 // ---------------------------------------------------------------------
-vector<string> strsplit(string& str, string& delim) {
+vector<string> strsplit(string& str, char delim = ' ') {
   // init
   if(str.empty()) return vector<string>{};
   vector<string> ret = {};
@@ -38,7 +37,6 @@ vector<string> strsplit(string& str, string& delim) {
   // loop over finding the substr and adding to ret
   for(int tmp = 0; tmp < std::string::npos; prev = tmp+1) {
     tmp = str.find(delim, prev);
-    printf("%d, %d\n", prev, tmp);
     if(tmp >= std::string::npos) break;
     size_t len = tmp - prev;
     ret.push_back(str.substr(prev, len));
@@ -88,6 +86,7 @@ string epoch_to_iso8601(time_t epoch) {
   char bufstr[buflen] = "";
   strftime(bufstr, buflen, "%FT%T", &date_utc);
   return bufstr; // bufstr already set empty on strftime error
+  return "";
 }
 
 
@@ -131,6 +130,7 @@ long int port_from_addrinfo(addrinfo* info) {
   if(err_status) return -1; // error
 
   // convert to base-10 int
+  // TODO: sanitize this strtol
   char* endptr = NULL;
   long int ret = strtol(serv, &endptr, 10);
 
