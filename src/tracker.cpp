@@ -74,13 +74,12 @@ public:
 
     void Create()
     {
-        TrackerSocket = socket(AF_INET, SOCK_STREAM, 0); // Create tracker socket to recieve (IPv4,TCP,automatic protocol)
         for(int i = 0; i< 256; i++)
         {
             PeerSockets[i] = 0;
             PeerInput[i] = "";
         }
-        CreateTracker("10101");
+        CreateTracker("10101"); // Create tracker socket to recieve (IPv4,TCP,automatic protocol)
     }
     void Listen() 
     {
