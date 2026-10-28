@@ -10,6 +10,7 @@
 #include <functional>
 #include <map>
 #include <arpa/inet.h>
+#include "lib/util.hpp"
 // TOTAL TODOS
 // Line 21: Verify peersockets and peerinput has proper string data
 // Line 52: Add Multithreading to process multiple peers at the same time
@@ -38,33 +39,39 @@ public:
     Can change to a binary format if needed.
     */
     
-
     struct acceptArgs
     {
         std::string IPADDR;
         int index;
     };
 
-    void CreateTracker() // tracker profile (see peer)
+    void CreateTracker(const char* port) // tracker profile (see peer)
     {
-        
-        TrackerAddr.sin_family = AF_INET; // tracker profile (see peer)
-        TrackerAddr.sin_port = htons(10101);
-        TrackerAddr.sin_addr.s_addr = INADDR_ANY;
-        int o = 1;
-        if(setsockopt(TrackerSocket,SOL_SOCKET,SO_REUSEADDR,&o,sizeof(int))<0)
+        // while going through the connection list
+        struct addrinfo* addrList = make_connection_list(port); 
+        for(struct addrinfo* addr = addrList; addr; addr = addrList->ai_next)
         {
-            std::cout << "Opt failure: " << errno << std::endl;
-            exit(-1);
-        }
-        if(bind(TrackerSocket, (struct sockaddr *)&TrackerAddr, sizeof(TrackerAddr))<0)
-        {
-            std::cout << "Bind failure: " << errno << std::endl;
-            close(TrackerSocket);
-            exit(-1);
-        }  
-        
+            // try the socket
+            TrackerSocket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+            if(TrackerSocket < 0) continue;
+          
+            // get around the "bind address already in use"
+            int optval = 1;
+            setsockopt(TrackerSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+            setsockopt(TrackerSocket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+
+            // try the bind
+            int bind_status = bind(TrackerSocket, addr->ai_addr, addr->ai_addrlen);
+            if (bind_status >= 0) // success, save and stop going through the list
+            { 
+                freeaddrinfo(addrList);
+                return;
+            }
+            close(TrackerSocket); // failure, clean the socket and continue
+        } // end for(...)
+        fprintf(stderr, "ERROR %d - could not create and bind to any network sockets -> %s:%d\n", errno, __FILE__, __LINE__);
     }
+
     void Create()
     {
         TrackerSocket = socket(AF_INET, SOCK_STREAM, 0); // Create tracker socket to recieve (IPv4,TCP,automatic protocol)
@@ -73,12 +80,10 @@ public:
             PeerSockets[i] = 0;
             PeerInput[i] = "";
         }
-        CreateTracker();
+        CreateTracker("10101");
     }
     void Listen() 
     {
-        
-        
         int p = listen(TrackerSocket, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
         
         if (p == -1)
@@ -100,7 +105,6 @@ public:
             int sel = select(TrackerSocket+1,&fds, NULL,NULL,&tm); //put timeout in final para
             if(sel <= 0)
             {
-                
                 continue;
             }
 
@@ -119,8 +123,6 @@ public:
                 
                 continue;
             }
-
-            
             
             
             sockaddr_in sockaddr_client; //where the addr of an IP from a client is stored

@@ -2,7 +2,7 @@
 # ---------------------------
 SRC_DIR = src/
 BUILD_DIR = build/
-CPP_VERSION = 11
+CPP_VERSION = 17
 COMMON_FLAGS = -g -std=c++$(CPP_VERSION)
 
 PEER_EXE = $(BUILD_DIR)peer
@@ -16,6 +16,7 @@ EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
 # Command format prefixes
 COMPILE = g++ $(COMMON_FLAGS) -c
 LINK = g++ $(COMMON_FLAGS) -o
+LIBS = -lmd #TODO: check this with TA/professor, look at lib/util.hpp for more info
 
 # -- Main compile target --
 # -------------------------
@@ -29,7 +30,7 @@ PEER_OBJS = $(BUILD_DIR)peer.out
 
 # Main executable
 $(BUILD_DIR)peer: $(PEER_OBJS)
-	$(LINK) $(PEER_EXE) $(PEER_OBJS)
+	$(LINK) $(PEER_EXE) $(PEER_OBJS) $(LIBS)
 
 # peer.out
 $(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp
@@ -41,7 +42,7 @@ TRACKER_OBJS = $(BUILD_DIR)tracker.out
 
 # Main executable
 $(BUILD_DIR)tracker: $(TRACKER_OBJS)
-	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS)
+	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS) $(LIBS)
 
 # tracker.out
 $(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp
