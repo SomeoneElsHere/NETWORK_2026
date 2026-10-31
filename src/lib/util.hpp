@@ -15,7 +15,7 @@ using namespace filesystem;
 
 // TODO: ensure this library is ok with the TA/professor.
 // Ships with linux since Debian GNU/kFreeBSD days but still technically third party.
-#include <md5.h> 
+//#include <md5.h> 
 
 // returns list of configurations that can start an ipv4 tcp server to bind to
 // returns NULL on error
@@ -63,20 +63,20 @@ vector<string> strsplit(string& str, char delim = ' ') {
 // Wrapper to calculate md5 easily
 // Returns empty string on error
 // ---------------------------------------------------------------------
-string md5(const char* file) {
-  char buf[MD5_DIGEST_STRING_LENGTH];
-  MD5_CTX context = {};
-  MD5Init(&context);
-  MD5File(file, buf);
-  MD5End(&context, NULL);
-  return string(buf);
-}
-
-
-// For calling with c++ types
-// ---------------------------------------------------------------------
-string md5(string file) { return md5(file.c_str()); }
-string md5(path& file) { return md5(file.string()); }
+//string md5(const char* file) {
+//  char buf[MD5_DIGEST_STRING_LENGTH];
+//  MD5_CTX context = {};
+//  MD5Init(&context);
+//  MD5File(file, buf);
+//  MD5End(&context, NULL);
+//  return string(buf);
+//}
+//
+//
+//// For calling with c++ types
+//// ---------------------------------------------------------------------
+//string md5(string file) { return md5(file.c_str()); }
+//string md5(path& file) { return md5(file.string()); }
 
 
 // extended addrinfo struct to manage a network connection

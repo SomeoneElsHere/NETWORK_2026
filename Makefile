@@ -16,7 +16,7 @@ EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
 # Command format prefixes
 COMPILE = g++ $(COMMON_FLAGS) -c
 LINK = g++ $(COMMON_FLAGS) -o
-LIBS = -lmd #TODO: check this with TA/professor, look at lib/util.hpp for more info
+LIBS = #-lmd #TODO: check this with TA/professor, look at lib/util.hpp for more info
 
 # -- Main compile target --
 # -------------------------
