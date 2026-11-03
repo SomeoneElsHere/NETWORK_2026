@@ -13,51 +13,118 @@
 #include <optional>
 #include <map>
 #include <arpa/inet.h>
+
 #include "lib/util.hpp"
+#include "common.cpp"
+
+using namespace peer_to_peer;
+
 // TOTAL TODOS
 // Line 21: Verify peersockets and peerinput has proper string data
 // Line 52: Add Multithreading to process multiple peers at the same time
 
+/**
+ * A set of configuration values relating to a peer's server thread
+ */
+typedef struct {
+    /**
+     * The port this tracker server will listen on
+     */
+    int16_t port;
+
+    /**
+     * The name of the shared folder
+     */
+    string shared_directory;
+} TrackerServerConfig;
+
 class Tracker
 {    
     public:
-        /**
-         * The default port used by the tracker
-         */
-        static constexpr int16_t TRACKER_PORT = 10101;
-
         /**
          * The maximum number of peers that can be connected to a tracker server concurrently
          */
         static constexpr int16_t MAX_PEERS = 256;
 
     private:
-        static constexpr int16_t MAX_MESSAGE_BUFFER_SIZE = 1024;
-
+        /**
+         * Information representing a peer connected to a tracker server
+         */
         struct peer_connection
         {
+            /**
+             * The file descriptor for this peer's socket
+             */
             const int peer_fd;
+
+            /**
+             * The string containing this peer's IP address
+             */
             const string peer_address;
+
+            /**
+             * The last message received from this peer
+             */
             optional<string> last_message = nullopt;
+
+            /**
+             * The worker thread used to communicate with this peer
+             */
             thread* worker_thread = nullptr;
+
+            /**
+             * Whether this peer has disconnected and the worker thread has exited
+             */
             bool completed = false;
 
+            /**
+             * The index this struct occupies in "connected_peers", for debugging purposes.
+             */
             int DEBUG_peerarray_index;
         };
 
         // Tracker server properties
+        
+        /**
+         * The self-appointed IP address used by this tracker server
+         */
         sockaddr_in tracker_addr;
+
+        /**
+         * The file descriptor for the listening socket of this tracker server
+         */
         int tracker_socket_fd;
 
         // Per-peer management data
+
+        /**
+         * A mapping between IP address strings and the slot the respective peer's connection data occupies
+         */
         map<string, int> ip_index_mappings;
+        
+        /**
+         * A set of slots used to store each peer's connection data.
+         * If a slot returns nullopt, that slot is empty and can be used to accept a new peer.
+         */
         optional<peer_connection*> connected_peers[MAX_PEERS];
+
+        /**
+         * The next available slot in "connected_peers" that can be filled with a peer's connection data
+         */
         atomic<int>* next_peer_index;
+
+        /**
+         * The thread used to dispose of terminated peer connection data and free up slots for new peers
+         */
         thread* peer_connection_manager;
+
+        /**
+         * A server-wide kill switch used to terminate all existing peer connections and clean up resources
+         */
         atomic<bool>* killswitch;
 
         /**
-         * Thread task used to manage peer connections and their threads
+         * Function used for "peer_connection manager"
          */
         void manage_peer_connections()
         {
@@ -66,6 +133,7 @@ class Tracker
             mutex guardian;
             bool foundActiveConnection = true;
 
+            // Ensure that no more active connections need to be handled before shutting this thread off
             while(!(this -> killswitch -> load()) || foundActiveConnection)
             {
                 foundActiveConnection = false;
@@ -75,13 +143,14 @@ class Tracker
                     {
                         foundActiveConnection = true;
 
-                        // Delete peer connection data and free slot
-                        // Use mutex to prevent access from main thread
+                        // Guard against main thread/peer threads manipulating peer slots/data                        
                         guardian.lock();
                         peer_connection* connection = connected_peers[i].value();
                         ip_index_mappings.erase(connection -> peer_address);
                         if(connection -> completed)
                         {
+                            // Delete peer connection data and free slot
+                            // Use mutex to prevent access from main thread
                             cout << "Clearing peer data for slot " << i << "." << endl;
                             delete connection -> worker_thread;
                             delete connection;
@@ -107,7 +176,8 @@ class Tracker
 
         /**
          * Initializes a peer connection and starts a worker thread for it
-         * @param ipv4 The IPv4 address of the peer
+         * @param peer_fd The file descriptor for the peer's socket
+         * @param peer_ipv4 The IPv4 address of the peer
          */
         void open_peer_connection(int peer_fd, sockaddr_in peer_ipv4)
         {
@@ -145,8 +215,8 @@ class Tracker
         }
 
         /**
-         * Receives messages from peer until connection closes
-         * @param connection_data A pointer to the connection data for the peer this worker thread is for
+         * Receives messages from a peer until its connection closes
+         * @param connection_data The connection data for the peer this worker thread is for
          */
         void peer_worker_task(peer_connection* connection_data)
         {
@@ -249,6 +319,7 @@ class Tracker
 
         /**
          * Listens for peers and creates worker threads when a connection with a peer is established
+         * @param error_code The location to store an error code if a problem occurs
          */
         bool try_listen_for_peers(int* error_code)
         {
@@ -266,6 +337,7 @@ class Tracker
             cout << "Listening for peers..." << endl;
             while(!(this -> killswitch -> load()))
             {
+                // Max peer connection count has been hit, wait until a slot frees up to continue accepting connections
                 if(next_peer_index -> load() == MAX_PEERS)
                     continue;
 
@@ -327,7 +399,9 @@ class Tracker
 
             this -> killswitch -> store(true);
             
-            if(this -> peer_connection_manager -> joinable()) {
+            // Wait for all peer connections to be terminated before closing the socket
+            if(this -> peer_connection_manager -> joinable())
+            {
                 this -> peer_connection_manager -> join();
             }
 

@@ -24,12 +24,20 @@ LIBS = #-lmd #TODO: check this with TA/professor, look at lib/util.hpp for more 
 # Ensure all executables are built when running "make"
 all: $(EXE_NAMES)
 
+# -- Common code --
+# -----------------
+COMMON_OBJS = $(BUILD_DIR)common.out
+
+# common.out
+$(BUILD_DIR)common.out: $(SRC_DIR)common.cpp
+	$(COMPILE) $(SRC_DIR)common.cpp -o $(BUILD_DIR)common.out
+
 # -- Peer program --
 # ------------------
-PEER_OBJS = $(BUILD_DIR)peer.out
+PEER_OBJS = $(BUILD_DIR)peer.out $(COMMON_OBJS)
 
 # Main executable
-$(BUILD_DIR)peer: $(PEER_OBJS)
+$(PEER_EXE): $(PEER_OBJS)
 	$(LINK) $(PEER_EXE) $(PEER_OBJS) $(LIBS)
 
 # peer.out
@@ -38,10 +46,10 @@ $(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp
 
 # -- Tracker program --
 # ---------------------
-TRACKER_OBJS = $(BUILD_DIR)tracker.out
+TRACKER_OBJS = $(BUILD_DIR)tracker.out $(COMMON_OBJS)
 
 # Main executable
-$(BUILD_DIR)tracker: $(TRACKER_OBJS)
+$(TRACKER_EXE): $(TRACKER_OBJS)
 	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS) $(LIBS)
 
 # tracker.out

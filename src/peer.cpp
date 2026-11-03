@@ -7,37 +7,52 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <errno.h>
+#include <typeindex>
 #include <unistd.h>
 #include <chrono>
 #include <thread>
 #include <vector>
 #include <cerrno>
-#include <string> 
+#include <string>
+
+#include "common.cpp"
 
 using namespace std;
+using namespace peer_to_peer;
 
+/**
+ * A set of configuration values relating to a peer's client thread
+ */
 typedef struct {
+    /**
+     * The address of the tracker server to connect to
+     */
     sockaddr_in tracker_addr;
+
+    /**
+     * The updatetracker interval, in seconds
+     */
     int update_interval;
 } PeerClientConfig;
 
 class Peer
 {
-    public:
-        /**
-         * The default port used by the tracker
-         */
-        static constexpr int16_t TRACKER_PORT = 10101;
-
     private:
+        /**
+         * The configuration values for the client thread of this peer
+         */
         PeerClientConfig client_config;
+
+        /**
+         * The socket used for communicating with the tracker server
+         */
         int tracker_socket_fd;
 
     public:
         /**
          * Attempts to parse a client thread configuration file
          * @param filename The name of the file to parse
-         * @returns A PeerClientConfig value
+         * @return The parsed client thread configuration values, if successful; otherwise, nullopt
          */
         static optional<PeerClientConfig> try_parse_client_config_file(string filename)
         {
