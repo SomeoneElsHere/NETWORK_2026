@@ -27,23 +27,17 @@ using namespace peer_to_peer;
  * A set of configuration values relating to a peer's server thread
  */
 typedef struct {
-    /**
-     * The port this tracker server will listen on
-     */
+    /// The port this tracker server will listen on
     int16_t port;
 
-    /**
-     * The name of the shared folder
-     */
+    /// The name of the shared folder
     string shared_directory;
 } TrackerServerConfig;
 
 class Tracker
 {    
     public:
-        /**
-         * The maximum number of peers that can be connected to a tracker server concurrently
-         */
+        /// The maximum number of peers that can be connected to a tracker server concurrently
         static constexpr int16_t MAX_PEERS = 256;
 
     private:
@@ -52,54 +46,36 @@ class Tracker
          */
         struct peer_connection
         {
-            /**
-             * The file descriptor for this peer's socket
-             */
-            const int peer_fd;
+            /// The file descriptor for this peer's socket
+            int peer_fd;
 
-            /**
-             * The string containing this peer's IP address
-             */
+            /// The string containing this peer's IP address
             const string peer_address;
 
-            /**
-             * The last message received from this peer
-             */
+            /// The last message received from this peer
             optional<string> last_message = nullopt;
 
-            /**
-             * The worker thread used to communicate with this peer
-             */
+            /// The worker thread used to communicate with this peer
             thread* worker_thread = nullptr;
 
-            /**
-             * Whether this peer has disconnected and the worker thread has exited
-             */
+            /// Whether this peer has disconnected and the worker thread has exited
             bool completed = false;
 
-            /**
-             * The index this struct occupies in "connected_peers", for debugging purposes.
-             */
+            /// The index this struct occupies in "connected_peers", for debugging purposes.
             int DEBUG_peerarray_index;
         };
 
         // Tracker server properties
         
-        /**
-         * The self-appointed IP address used by this tracker server
-         */
+        /// The self-appointed IP address used by this tracker server
         sockaddr_in tracker_addr;
 
-        /**
-         * The file descriptor for the listening socket of this tracker server
-         */
+        /// The file descriptor for the listening socket of this tracker server
         int tracker_socket_fd;
 
         // Per-peer management data
 
-        /**
-         * A mapping between IP address strings and the slot the respective peer's connection data occupies
-         */
+        /// A mapping between IP address strings and the slot the respective peer's connection data occupies
         map<string, int> ip_index_mappings;
         
         /**
@@ -108,20 +84,83 @@ class Tracker
          */
         optional<peer_connection*> connected_peers[MAX_PEERS];
 
-        /**
-         * The next available slot in "connected_peers" that can be filled with a peer's connection data
-         */
+        /// The next available slot in "connected_peers" that can be filled with a peer's connection data
         atomic<int>* next_peer_index;
 
-        /**
-         * The thread used to dispose of terminated peer connection data and free up slots for new peers
-         */
+        /// The thread used to listen for and accept/decline peer connections
+        thread* peer_listener;
+
+        /// The thread used to dispose of terminated peer connection data and free up slots for new peers
         thread* peer_connection_manager;
 
-        /**
-         * A server-wide kill switch used to terminate all existing peer connections and clean up resources
-         */
+        /// A server-wide kill switch used to terminate all existing peer connections and clean up resources
         atomic<bool>* killswitch;
+
+        /**
+         * Listens for potential peers until the killswitch is activated
+         * @param on_error The function to invoke if/when an error occurs
+         */
+        void listen_for_peers(NET_ERROR_HANDLER on_error)
+        {
+            int p = listen(this -> tracker_socket_fd, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
+            if (p == -1)
+            {
+                on_error(errno, true);
+                return;
+            }
+
+            cout << "Listening for peers..." << endl;
+            while(!(this -> killswitch -> load()))
+            {
+                // Max peer connection count has been hit, wait until a slot frees up to continue accepting connections
+                if(next_peer_index -> load() == MAX_PEERS)
+                    continue;
+
+                fd_set fds;
+                FD_ZERO(&fds);
+                FD_SET(this -> tracker_socket_fd, &fds);
+
+                //timeout (needed or select will stall)
+                struct timeval tm;
+                tm.tv_usec = 100;
+                tm.tv_sec = 0;
+
+                int sel = select(this -> tracker_socket_fd + 1,&fds, NULL,NULL,&tm); //put timeout in final para
+                if(sel <= 0)
+                {
+                    continue;
+                }
+
+                in_addr addr;
+                addr.s_addr = INADDR_ANY;
+
+                sockaddr_in sockaddr_client; //where the addr of an IP from a client is stored
+                sockaddr_client.sin_family = AF_INET;
+                sockaddr_client.sin_addr = addr;
+                sockaddr_client.sin_port = this -> tracker_addr.sin_port;
+
+                socklen_t sockklen;
+                sockklen = 4;
+
+                int peer_fd = accept(
+                    this -> tracker_socket_fd,
+                    (struct sockaddr*)&sockaddr_client,
+                    &sockklen
+                ); // accept any addr
+
+                if (peer_fd != -1)
+                {
+                    sockaddr_in IPV4 = (sockaddr_in)sockaddr_client;
+                    this -> open_peer_connection(peer_fd, IPV4);
+                    continue;
+                }
+
+                on_error(errno,  false);
+            }
+
+            // Killswitch activated; no need to continue listening
+            cout << "Stopped listening for peers." << endl;
+        }
 
         /**
          * Function used for "peer_connection manager"
@@ -146,9 +185,17 @@ class Tracker
                         // Guard against main thread/peer threads manipulating peer slots/data                        
                         guardian.lock();
                         peer_connection* connection = connected_peers[i].value();
-                        ip_index_mappings.erase(connection -> peer_address);
+                        
+                        // Force peer worker thread to give up receiving bytes if the killswitch is activated
+                        if(connection -> peer_fd != -1 && this -> killswitch -> load())
+                        {
+                            shutdown(connection -> peer_fd, SHUT_RD);
+                        }
+
                         if(connection -> completed)
                         {
+                            ip_index_mappings.erase(connection -> peer_address);
+
                             // Delete peer connection data and free slot
                             // Use mutex to prevent access from main thread
                             cout << "Clearing peer data for slot " << i << "." << endl;
@@ -242,7 +289,11 @@ class Tracker
             }
 
             // Close peer connection before end of thread
-            close(connection_data -> peer_fd);
+            if(connection_data -> peer_fd != -1)
+            {
+                close(connection_data -> peer_fd);
+                connection_data -> peer_fd = -1;
+            }
             connection_data -> completed = true;
         }
 
@@ -262,6 +313,8 @@ class Tracker
             }
             this -> next_peer_index = new atomic<int>(0);
 
+            this -> peer_listener = nullptr;
+            this -> peer_connection_manager = nullptr;
             this -> killswitch = new atomic<bool>(false);
         }
 
@@ -270,7 +323,7 @@ class Tracker
          */
         ~Tracker()
         {
-            this -> close_socket();
+            this -> close_server();
 
             this -> ip_index_mappings.clear();
             delete this -> next_peer_index;
@@ -278,9 +331,17 @@ class Tracker
         }
 
         /**
+         * Determines whether this tracker server is currently listening for peers
+         */
+        bool is_listening()
+        {
+            return this -> peer_listener != nullptr;
+        }
+
+        /**
          * Attempts to initialize the socket this tracker server will use
          * @param port The port the tracker server will listen through
-         * @returns true if the tracker server is ready to listen; otherwise, false
+         * @return true if the tracker server is ready to listen; otherwise, false
          */
         bool try_init(const char* port)
         {   
@@ -313,92 +374,55 @@ class Tracker
                 close(this -> tracker_socket_fd); // failure, clean the socket and continue
             } // end for(...)
 
+            this -> tracker_socket_fd = -1;
             cout << "Failed to initialize tracker server; no suitable socket found." << endl;
             return false;
         }
 
         /**
-         * Listens for peers and creates worker threads when a connection with a peer is established
-         * @param error_code The location to store an error code if a problem occurs
+         * Starts a thread that listens for peers and creates worker threads when a connection with a peer is established
+         * @param on_error The function to call if an error occurs while listening
+         * @return true if the thread is started; otherwise, false
          */
-        bool try_listen_for_peers(int* error_code)
+        bool try_listen_for_peers(NET_ERROR_HANDLER on_error)
         {
             if(this -> tracker_socket_fd < 0)
-                return false;
-
-            int p = listen(this -> tracker_socket_fd, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
-            if (p == -1)
             {
-                if(error_code != nullptr)
-                    *error_code = errno;
+                cout << "Listening socket is not running." << endl;
                 return false;
             }
 
-            cout << "Listening for peers..." << endl;
-            while(!(this -> killswitch -> load()))
+            if(this -> peer_listener != nullptr)
             {
-                // Max peer connection count has been hit, wait until a slot frees up to continue accepting connections
-                if(next_peer_index -> load() == MAX_PEERS)
-                    continue;
-
-                fd_set fds;
-                FD_ZERO(&fds);
-                FD_SET(this -> tracker_socket_fd, &fds);
-
-                //timeout (needed or select will stall)
-                struct timeval tm;
-                tm.tv_usec = 100;
-                tm.tv_sec = 0;
-
-                int sel = select(this -> tracker_socket_fd + 1,&fds, NULL,NULL,&tm); //put timeout in final para
-                if(sel <= 0)
-                {
-                    continue;
-                }
-
-                in_addr addr;
-                addr.s_addr = INADDR_ANY;
-
-                sockaddr_in sockaddr_client; //where the addr of an IP from a client is stored
-                sockaddr_client.sin_family = AF_INET;
-                sockaddr_client.sin_addr = addr;
-                sockaddr_client.sin_port = this -> tracker_addr.sin_port;
-
-                socklen_t sockklen;
-                sockklen = 4;
-
-                int peer_fd = accept(
-                    this -> tracker_socket_fd,
-                    (struct sockaddr*)&sockaddr_client,
-                    &sockklen
-                ); // accept any addr
-
-                if (peer_fd == -1)
-                {
-                    if(error_code != nullptr)
-                        *error_code = errno;
-                    return false;
-                }
-
-                sockaddr_in IPV4 = (sockaddr_in)sockaddr_client;
-                this -> open_peer_connection(peer_fd, IPV4);
+                cout << "Peer listener is already running." << endl;
+                return false;
             }
 
-            // Killswitch activated; no need to continue listening
+            this -> peer_listener = new thread(&Tracker::listen_for_peers, this, on_error);
             return true;
         }
 
         /**
          * Closes all existing connections with peers and shuts down the tracker server
          */
-        void close_socket()
+        void close_server()
         {
-            cout << "Closing tracker server..." << endl;
             if(this -> tracker_socket_fd < 0)
                 return;
 
+            cout << "Closing tracker server..." << endl;
             this -> killswitch -> store(true);
+            shutdown(this -> tracker_socket_fd, SHUT_RD);
             
+            // Wait for peer listening thread to close
+            if(this -> peer_listener -> joinable())
+            {
+                this -> peer_listener -> join();
+            }
+
+            delete this -> peer_listener;
+            this -> peer_listener = nullptr;
+
             // Wait for all peer connections to be terminated before closing the socket
             if(this -> peer_connection_manager -> joinable())
             {
@@ -407,9 +431,9 @@ class Tracker
 
             delete this -> peer_connection_manager;
             this -> peer_connection_manager = nullptr;
+            
             this -> killswitch -> store(false);
 
-            close(this -> tracker_socket_fd);
             this -> tracker_socket_fd = -1;
             cout << "Tracking server closed." << endl;
         }
@@ -597,6 +621,16 @@ class Tracker
 //    }
 //};
 
+void print_error_code(int error_code, bool fatal)
+{
+    if(fatal)
+        cout << "A fatal problem occurred while the tracker server was listening. Error code: " << error_code << endl;
+    else
+        cout << "A problem occurred while the tracker server was listening. Error code: " << error_code << endl;
+}
+
+const string commandstr_exit = "exit";
+
 int main()
 {
     Tracker tracker;
@@ -607,13 +641,24 @@ int main()
     }
     
     int error_code = 0;
-    if(!tracker.try_listen_for_peers(&error_code))
+    if(!tracker.try_listen_for_peers(&print_error_code))
     {
-        cout << "A problem occurred while the tracker server was listening. Error code: " << error_code << endl;
+        cout << "A problem occurred while starting the tracker server listening thread." << endl;
         return 2;
     }
 
-    tracker.close_socket();
+    do {
+        string command;
+        getline(cin, command);
+        cout << "Received command '" << command << "'." << endl;
+
+        if(command == commandstr_exit)
+            break;
+    }
+    while(tracker.is_listening());
+
+    tracker.close_server();
+    return 0;
 
     //peer.send_to_tracker("Test", 4);
     //peer.close_socket();

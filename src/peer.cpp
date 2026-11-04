@@ -24,30 +24,41 @@ using namespace peer_to_peer;
  * A set of configuration values relating to a peer's client thread
  */
 typedef struct {
-    /**
-     * The address of the tracker server to connect to
-     */
+    /// The address of the tracker server to connect to
     sockaddr_in tracker_addr;
 
-    /**
-     * The updatetracker interval, in seconds
-     */
+    /// The updatetracker interval, in seconds
     int update_interval;
 } PeerClientConfig;
 
 class Peer
 {
     private:
-        /**
-         * The configuration values for the client thread of this peer
-         */
+        /// The configuration values for the client thread of this peer
         PeerClientConfig client_config;
 
-        /**
-         * The socket used for communicating with the tracker server
-         */
+        /// The socket used for communicating with the tracker server
         int tracker_socket_fd;
 
+        /**
+         * Checks if a fail condition passed, and if it did, sets an error code pointer if one was specified
+         * @param fail_condition The result of the fail condition
+         * @param error_code The memory location to store the error code, if the fail condition passes
+         * @return false if fail_condition is true; otherwise, true
+         */
+        static bool check_for_error(bool fail_condition, int* error_code)
+        {
+            if(fail_condition)
+            {
+                if(error_code != nullptr)
+                    *error_code = errno;
+
+                return false;
+            }
+
+            return true;
+        }
+        
     public:
         /**
          * Attempts to parse a client thread configuration file
@@ -142,7 +153,7 @@ class Peer
         /**
          * Attempts to initialize the socket and tracker address this peer will use
          * @param error_code The memory location to store the error code, if creating the socket fails
-         * @returns true if creation of the socket was successful; otherwise, false
+         * @return true if creation of the socket was successful; otherwise, false
          */
         bool try_init_socket(int* error_code)
         {
@@ -155,21 +166,13 @@ class Peer
                 0
             );
 
-            if(tracker_socket_fd < 0)
-            {
-                if(error_code != nullptr)
-                    *error_code = errno;
-                
-                return false;
-            }
-
-            return true;
+            return check_for_error(tracker_socket_fd < 0, error_code);
         }
 
         /**
          * Attempts to connect to the tracker server using the created socket
          * @param error_code The memory location to store the error code, if the connection attempt fails
-         * @returns true if connection was successful; otherwise, false
+         * @return true if connection was successful; otherwise, false
          */
         bool try_connect(int* error_code)
         {
@@ -184,25 +187,21 @@ class Peer
                 sizeof(this -> client_config.tracker_addr)
             );
 
-            if(success == -1)
-            {
-                if(error_code != nullptr)
-                    *error_code = errno;
-
-                return false;
-            }
-            else
-                return true;
+            return check_for_error(success == -1, error_code);
         }
 
         /**
-         * Sends a string message to the tracker
+         * Attempts to send a string message to the tracker
          * @param message The message to be sent
          * @param len The length of the message
-         * @returns true if the message was successfully sent; otherwise, false
+         * @param error_code The memory location to store the error code, if the send attempt fails
+         * @return true if the message was successfully sent; otherwise, false
          */
-        bool send_to_tracker(std::string message, int len)
+        bool try_send_to_tracker(std::string message, int len, int* error_code)
         {
+            if(this -> tracker_socket_fd < 0)
+                return false;
+
             std::string content = (std::to_string(len) +":"+ message);
             const char* content_buffer = content.c_str();
 
@@ -213,7 +212,7 @@ class Peer
                 0
             );
 
-            return (sentBytes != -1);
+            return check_for_error(sentBytes == -1, error_code);
         }
 
         /**
@@ -299,7 +298,6 @@ int main()
     cout << "Connection successfully established." << endl;
     
     string message;
-    
     bool sentSuccess;
     do {
         message.clear();
@@ -308,9 +306,16 @@ int main()
         if(message == commandstr_exit)
             break;
 
-        sentSuccess = peer.send_to_tracker(message, message.length() - 1);
-        if(!sentSuccess)
-            cout << "Lost connection to tracker server." << endl;
+        try
+        {
+            sentSuccess = peer.try_send_to_tracker(message, message.length() - 1, &error_code);
+            if(!sentSuccess)
+                cout << "Message failed to send. Error code: " << error_code << endl;
+        }
+        catch (...) {
+            sentSuccess = false;
+            cout << "An exception was thrown while trying to send message." << endl;
+        }
     }
     while(sentSuccess);
     peer.close_socket();
