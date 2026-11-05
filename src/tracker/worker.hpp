@@ -36,11 +36,20 @@ bool proc_list(string& cmd, int sockfd, list<TrackerFile>& tracker_files, pthrea
 // Returns empty if not found (or file was empty)
 // ----------------------------------------------------------------------------
 string find_trackerfile(string& name, list<TrackerFile>& tracker_files) {
+  string ret = "";
   for(TrackerFile& file : tracker_files) {
     if(!file.has_filename(name)) continue;
-    return "non-empty";
+    ret += "Filename: ";
+    ret += file.filename + "\n";
+    ret += "Filesize: ";
+    ret += to_string(file.filesize) + "\n";
+    ret += "Description: ";
+    ret += file.description + "\n";
+    ret += "MD5: ";
+    ret += file.md5;
+    break;
   }
-  return "";
+  return ret;
 }
 
 
@@ -88,15 +97,14 @@ bool proc_create(vector<string>& cmd, int sockfd, list<TrackerFile>& tracker_fil
   if(cmd.size() < 1) return false;
   if(cmd.front() != "createtracker") return false;
 
-  // Produce the file
-  TrackerFile file = {};
-  if(cmd.size() == 6) file = TrackerFile(cmd[1], cmd[2], "", cmd[3], cmd[4]);
-  else if(cmd.size() == 7) file = TrackerFile(cmd[1], cmd[2], cmd[3], cmd[4], cmd[5]);
-  else { // missing arguments
-    // TODO: make it send the usage here instead
+
+  // produce the file
+  if(cmd.size() == 6) cmd.emplace(cmd.begin() + 3, string(""));
+  if(cmd.size() != 7) { // missing arguments
     send(sockfd, REP_CREATE_FAIL, sizeof REP_CREATE_FAIL, 0);
     return true; // still the command was right, technically
   }; 
+  TrackerFile file = TrackerFile(cmd[1], cmd[2], cmd[3], cmd[4]);
 
   // add the file
   pthread_mutex_lock(&worker_lock);
@@ -138,7 +146,9 @@ void* proc_tracker_all(void* tracker_box) {
     string trimmed = str.substr(0, len);
     if(proc_list(trimmed, sockfd, tracker_files, worker_lock)) continue;
     //if(proc_update(str)) continue;
-    vector<string> strs = strsplit(trimmed);
+    //TODO: make valid_string follow the convention
+    bool valid_string = true;
+    vector<string> strs = str_to_args(trimmed, valid_string);
     if(proc_get(strs, sockfd, tracker_files, worker_lock)) continue;
     if(proc_create(strs, sockfd, tracker_files, worker_lock)) continue;
     send(sockfd, "invalid command\n", sizeof "invalid command\n", 0);

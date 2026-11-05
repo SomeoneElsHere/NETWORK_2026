@@ -1,5 +1,5 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef UTIL_HPP
+#define UTIL_HPP
 
 // Utility functions and wrappers for general usage 
 #include "../includes.hpp"
@@ -26,24 +26,45 @@ struct addrinfo* make_connection_list(const char* port) {
 }
 
 
-// split a string into vectors around 'delim'
+// split a string into vectors around quotation marks.
+// If double quotes used, string will accept single quotes and vice versa
+// Also allows backslashes to use double quotes in double quotes.
+// After the quotations, will split around whitespace.
+// Allows commans to be used as seperators outside of quotations too
+// Sets err_status=true on errors like unclosed quotations or unknown characters
 // ---------------------------------------------------------------------
-vector<string> strsplit(string& str, char delim = ' ') {
-  // init
+vector<string> str_to_args(string& str, bool& err_status) {
+  // sanitize and init
   if(str.empty()) return vector<string>{};
+  bool dquotes = false, quotes = false, escape = false;
   vector<string> ret = {};
-  int prev = 0;
+  string current = "";
 
-  // loop over finding the substr and adding to ret
-  for(int tmp = 0; tmp < std::string::npos; prev = tmp+1) {
-    tmp = str.find(delim, prev);
-    if(tmp >= std::string::npos) break;
-    size_t len = tmp - prev;
-    ret.push_back(str.substr(prev, len));
+  // while looping over the string
+  for(unsigned char c : str) {
+    // special characters
+    if((c == '"') && (!quotes) && (!escape)) dquotes = !dquotes;      // handle double quotations
+    else if((c == '\'') && (!dquotes) && (!escape)) quotes = !quotes; // handle single quotations
+    else if(c == '\\' && !escape) {escape = true; continue;}          // the escape/backslash 
+    else if(isspace(c) && (!quotes) && (!dquotes) && (!escape)) {     // whitespace
+      ret.push_back(current);
+      current.clear();
+    } else if(isprint(c)) current.push_back(c);                       // normal characters
+    else {                                                            // unkown, unprintable characters
+      err_status = true;
+      fprintf(stderr, "WARNING - Invalid character \"%du\"-> %s:%d\n", c, __FILE__, __LINE__);
+      return ret;
+    } 
+    escape = false;
   }
 
-  // finish return
-  ret.push_back(str.substr(prev));
+  // sanitize and push last string if there is any left
+  if(quotes || dquotes || escape) {
+    fprintf(stderr, "WARNING - Unclosed quotations or stray backslash -> %s:%d\n", __FILE__, __LINE__);
+    err_status = true;
+    return ret;
+  }
+  if(!current.empty()) ret.push_back(current);
   return ret;
 }
 

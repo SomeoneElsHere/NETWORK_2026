@@ -1,12 +1,12 @@
-#ifndef FFORMAT_HPP
-#define FFORMAT_HPP
+#ifndef FILES_HPP
+#define FILES_HPP
 
 
 #include "../includes.hpp"
 
 
-struct PeerMetadata {
-  PeerMetadata(string _addr, string _port,
+struct PeerInfo {
+  PeerInfo(string _addr, string _port,
                size_t _start_byte,
                size_t _end_byte,
                time_t _time_stamp);
@@ -21,26 +21,27 @@ private:
 
 // Library to make, read, and store the tracker file format 
 class TrackerFile {
-private:
+public:
+  // data, public for quick read only.
   string filename;
   size_t filesize;
   string description; // empty if none
   string md5;
-  string address;
-public:
+  vector<PeerInfo> peers;
   string quickstring; // Of form "file1name file1size file1MD5\n"
+
+  // functions
   bool has_filename(string& compare) { return filename == compare; }
-  TrackerFile(string filenam, string filesiz, string desc, string md, string addr) {
+  TrackerFile(string filenam, string filesiz, string desc, string md) {
     //TODO: sanitize the strtoll
     filename = filenam;
     char* endptr = NULL;
     filesize = strtoll(filesiz.c_str(), &endptr, 10);
     description = desc;
     md5 = md;
-    address = addr;
     quickstring = filenam + " " + filesiz + " " + md + "\n";
   };
-  TrackerFile(): filename{}, filesize{}, description{}, md5{}, address{} {}
+  TrackerFile(): filename{}, filesize{}, description{}, md5{} {}
 };
 
 
@@ -52,7 +53,7 @@ list<TrackerFile> produce_file_list() {
 
 
 /* implementations */
-PeerMetadata::PeerMetadata(string _addr, string _port,
+PeerInfo::PeerInfo(string _addr, string _port,
              size_t _start_byte,
              size_t _end_byte,
              time_t _time_stamp)

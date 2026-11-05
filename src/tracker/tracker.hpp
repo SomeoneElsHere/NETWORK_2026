@@ -42,8 +42,6 @@ private:
 Tracker::Tracker(const char* port /* = 9999 */) {
   // get a list of options
   struct addrinfo* addrList = make_connection_list(port); 
-  err_status = addrList == NULL;
-  if(err_status) return;
 
   // while going through the list
   for(struct addrinfo* addr = addrList; addr; addr = addrList->ai_next) {
@@ -128,5 +126,3 @@ void Tracker::run() {
 
 
 #endif
-
-// TODO: modularize the proc_ functions
