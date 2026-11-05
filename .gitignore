@@ -492,8 +492,5 @@ flycheck_*.el
 *.ccls-cache
 *.ccls
 
-/build/*.out
-/build/peer
-/build/tracker
-clientThreadConfig.cfg
+/build/
 # /build/<executable name>

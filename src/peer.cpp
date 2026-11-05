@@ -15,7 +15,7 @@
 #include <cerrno>
 #include <string>
 
-#include "common.cpp"
+#include "common.hpp"
 
 using namespace std;
 using namespace peer_to_peer;
@@ -30,6 +30,58 @@ typedef struct {
     /// The updatetracker interval, in seconds
     int update_interval;
 } PeerClientConfig;
+
+/**
+ * Attempts to parse a client thread configuration file
+ * @param filename The name of the file to parse
+ * @return The parsed client thread configuration values, if successful; otherwise, nullopt
+ */
+static optional<PeerClientConfig> try_parse_peer_client_config(string filename)
+{
+    ifstream fileStream(filename);
+    if(!fileStream.is_open())
+    {
+        // Failed to open the specified file for reading
+        return nullopt;
+    }
+    int intPort, intUpdateInterval;
+    in_addr_t convertedAddr;
+    try
+    {
+        string strPort, strAddr, strUpdateInterval;
+
+        // Port Number
+        getline(fileStream, strPort);
+        intPort = stoi(strPort);
+
+        // IP Address
+        getline(fileStream, strAddr);
+        convertedAddr = inet_addr(strAddr.c_str());
+        if(convertedAddr == -1)
+            throw 0;
+
+        // Update Interval
+        getline(fileStream, strUpdateInterval);
+        intUpdateInterval = stoi(strUpdateInterval);
+        fileStream.close();
+    }
+    catch (...) 
+    {
+        // One of the options could not be parsed correctly
+        fileStream.close();
+        return nullopt;
+    }
+
+    sockaddr_in tracker_addr;
+    tracker_addr.sin_family = AF_INET;
+    tracker_addr.sin_port = htons(TRACKER_PORT);
+    tracker_addr.sin_addr.s_addr = (in_addr_t)convertedAddr;
+    
+    return PeerClientConfig{
+        tracker_addr,
+        intUpdateInterval
+    };
+}
 
 class Peer
 {
@@ -60,60 +112,6 @@ class Peer
         }
         
     public:
-        /**
-         * Attempts to parse a client thread configuration file
-         * @param filename The name of the file to parse
-         * @return The parsed client thread configuration values, if successful; otherwise, nullopt
-         */
-        static optional<PeerClientConfig> try_parse_client_config_file(string filename)
-        {
-            ifstream fileStream(filename);
-            if(!fileStream.is_open())
-            {
-                // Failed to open the specified file for reading
-                return nullopt;
-            }
-
-            int intPort, intUpdateInterval;
-            in_addr_t convertedAddr;
-            try
-            {
-                string strPort, strAddr, strUpdateInterval;
-
-                // Port Number
-                getline(fileStream, strPort);
-                intPort = stoi(strPort);
-
-                // IP Address
-                getline(fileStream, strAddr);
-                convertedAddr = inet_addr(strAddr.c_str());
-                if(convertedAddr == -1)
-                    throw 0;
-
-                // Update Interval
-                getline(fileStream, strUpdateInterval);
-                intUpdateInterval = stoi(strUpdateInterval);
-            }
-            catch (...) 
-            {
-                // One of the options could not be parsed correctly
-                fileStream.close();
-                return nullopt;
-            }
-
-            sockaddr_in tracker_addr;
-
-            tracker_addr.sin_family = AF_INET;
-            tracker_addr.sin_port = htons(TRACKER_PORT);
-            tracker_addr.sin_addr.s_addr = (in_addr_t)convertedAddr;
-
-            fileStream.close();
-            return PeerClientConfig{
-                tracker_addr,
-                1
-            };
-        }
-
         /**
          * Creates a new peer with the default client thread configuration
          */
@@ -204,13 +202,9 @@ class Peer
                 return false;
 
             std::string content = (std::to_string(len) +":"+ message);
-            const char* content_buffer = content.c_str();
-
-            int sentBytes = send(
-                this -> tracker_socket_fd,
-                content_buffer,
-                content.length(),
-                0
+            size_t sentBytes = send_string(
+                this -> tracker_socket_fd, 
+                content
             );
 
             return check_for_error(sentBytes == -1, error_code);
@@ -275,7 +269,7 @@ const string commandstr_exit = "exit";
 
 int main()
 {
-    optional<PeerClientConfig> clientConfig = Peer::try_parse_client_config_file("./clientThreadConfig.cfg");
+    optional<PeerClientConfig> clientConfig = try_parse_peer_client_config("./clientThreadConfig.cfg");
     if(!clientConfig.has_value())
     {
         cout << "The specified clientThreadConfig file could not be read. Does it exist, and is it formatted properly?" << endl;

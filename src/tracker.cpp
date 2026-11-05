@@ -1,5 +1,4 @@
 #include <cstring>
-#include <iostream>
 #include <mutex>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -13,9 +12,11 @@
 #include <optional>
 #include <map>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <iostream>
+#include <fstream>
 
-#include "lib/util.hpp"
-#include "common.cpp"
+#include "common.hpp"
 
 using namespace peer_to_peer;
 
@@ -33,6 +34,47 @@ typedef struct {
     /// The name of the shared folder
     string shared_directory;
 } TrackerServerConfig;
+
+/**
+ * Attempts to parse a tracker server configuration file
+ * @param filename The name of the file to parse
+ * @return The parsed tracker server configuration values, if successful; otherwise, nullopt
+ */
+static optional<TrackerServerConfig> try_parse_sconfig(string filename)
+{
+    ifstream fileStream(filename);
+    if(!fileStream.is_open())
+    {
+        // Failed to open the specified file for reading
+        return nullopt;
+    }
+
+    int16_t intPort;
+    string strDirectory;
+    try
+    {
+        string strPort;
+
+        // Port Number
+        getline(fileStream, strPort);
+        intPort = stoi(strPort);
+
+        // Shared Directory
+        getline(fileStream, strDirectory);
+    }
+    catch (...) 
+    {
+        // One of the options could not be parsed correctly
+        fileStream.close();
+        return nullopt;
+    }
+
+    fileStream.close();
+    return TrackerServerConfig{
+        intPort,
+        strDirectory
+    };
+}
 
 class Tracker
 {    
@@ -66,7 +108,10 @@ class Tracker
         };
 
         // Tracker server properties
-        
+
+        /// The configuration values for this tracker server
+        TrackerServerConfig tracker_config;
+
         /// The self-appointed IP address used by this tracker server
         sockaddr_in tracker_addr;
 
@@ -105,7 +150,7 @@ class Tracker
             int p = listen(this -> tracker_socket_fd, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
             if (p == -1)
             {
-                on_error(errno, true);
+                on_error(errno, true, "Starting the peer listening thread");
                 return;
             }
 
@@ -155,7 +200,7 @@ class Tracker
                     continue;
                 }
 
-                on_error(errno,  false);
+                on_error(errno, false, "Searching for a suitable connection");
             }
 
             // Killswitch activated; no need to continue listening
@@ -297,11 +342,10 @@ class Tracker
             connection_data -> completed = true;
         }
 
-    public:
         /**
-         * Creates a new tracker server
+         * Common code used in both constructors
          */
-        Tracker()
+        void init()
         {
             this -> tracker_addr = sockaddr_in();
             this -> tracker_socket_fd = -1;
@@ -316,6 +360,30 @@ class Tracker
             this -> peer_listener = nullptr;
             this -> peer_connection_manager = nullptr;
             this -> killswitch = new atomic<bool>(false);
+        }
+
+    public:
+
+        /**
+         * Creates a new tracker server with the default configuration
+         */
+        Tracker()
+        {
+            this -> tracker_config = TrackerServerConfig{
+                10101,
+                "shared/"
+            };
+            init();
+        }
+
+        /**
+         * Creates a new tracker server with a custom configuration
+         * @param trackerConfig The configuration values for the tracker server
+         */
+        Tracker(TrackerServerConfig trackerConfig)
+        {
+            this -> tracker_config = trackerConfig;
+            init();
         }
 
         /**
@@ -340,17 +408,17 @@ class Tracker
 
         /**
          * Attempts to initialize the socket this tracker server will use
-         * @param port The port the tracker server will listen through
          * @return true if the tracker server is ready to listen; otherwise, false
          */
-        bool try_init(const char* port)
+        bool try_init()
         {   
             if(this -> tracker_socket_fd >= 0)
                 return false;
 
             cout << "Attempting to initialize tracker server..." << endl;
-            struct addrinfo* addrList = make_connection_list(port); 
-            for(struct addrinfo* addr = addrList; addr; addr = addrList->ai_next)
+            addrinfo* addrList = make_connection_list(this -> tracker_config.port); 
+            
+            for(addrinfo* addr = addrList; addr; addr = addrList->ai_next)
             {
                 // try the socket
                 this -> tracker_socket_fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
@@ -412,7 +480,7 @@ class Tracker
 
             cout << "Closing tracker server..." << endl;
             this -> killswitch -> store(true);
-            shutdown(this -> tracker_socket_fd, SHUT_RD);
+            //shutdown(this -> tracker_socket_fd, SHUT_RD);
             
             // Wait for peer listening thread to close
             if(this -> peer_listener -> joinable())
@@ -434,6 +502,7 @@ class Tracker
             
             this -> killswitch -> store(false);
 
+            close(this -> tracker_socket_fd);
             this -> tracker_socket_fd = -1;
             cout << "Tracking server closed." << endl;
         }
@@ -621,30 +690,40 @@ class Tracker
 //    }
 //};
 
-void print_error_code(int error_code, bool fatal)
+void print_error_code(int error_code, bool fatal, optional<string> context_str)
 {
     if(fatal)
         cout << "A fatal problem occurred while the tracker server was listening. Error code: " << error_code << endl;
     else
         cout << "A problem occurred while the tracker server was listening. Error code: " << error_code << endl;
+
+    if(context_str.has_value())
+        cout << "- Context was: \"" << context_str.value() << "\"" << endl;
 }
 
 const string commandstr_exit = "exit";
 
 int main()
 {
-    Tracker tracker;
-    if(!tracker.try_init("10101"))
+    optional<TrackerServerConfig> trackerConfig = try_parse_sconfig("./sconfig");
+    if(!trackerConfig.has_value())
+    {
+        cout << "The specified sconfig file could not be read. Does it exist, and is it formatted properly?" << endl;
+        return 1;
+    }
+
+    Tracker tracker(trackerConfig.value());
+    if(!tracker.try_init())
     {
         cout << "Could not open a socket for listening. " << endl;
-        return 1;
+        return 2;
     }
     
     int error_code = 0;
     if(!tracker.try_listen_for_peers(&print_error_code))
     {
         cout << "A problem occurred while starting the tracker server listening thread." << endl;
-        return 2;
+        return 3;
     }
 
     do {
