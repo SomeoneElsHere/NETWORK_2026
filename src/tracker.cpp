@@ -163,7 +163,7 @@ class Tracker
         }
 
         /**
-         * Function used for "peer_connection manager"
+         * Checks for the lowest open peer slot and finishes clearing memory occupied by completed peer connections. Repeats this process until the killswitch is activated.
          */
         void manage_peer_connections()
         {
@@ -650,7 +650,6 @@ int main()
     do {
         string command;
         getline(cin, command);
-        cout << "Received command '" << command << "'." << endl;
 
         if(command == commandstr_exit)
             break;

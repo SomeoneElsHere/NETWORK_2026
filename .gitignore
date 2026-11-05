@@ -497,4 +497,3 @@ flycheck_*.el
 /build/tracker
 clientThreadConfig.cfg
 # /build/<executable name>
-.clangd

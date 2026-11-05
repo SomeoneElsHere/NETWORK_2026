@@ -115,7 +115,7 @@ class Peer
         }
 
         /**
-         * Creates a new peer client with the default client thread configuration
+         * Creates a new peer with the default client thread configuration
          */
         Peer()
         {
@@ -133,7 +133,8 @@ class Peer
         }
 
         /**
-         * Creates a new peer client with a custom client thread configuration
+         * Creates a new peer with a custom client thread configuration
+         * @param clientConfig The configuration values for the client thread
          */
         Peer(PeerClientConfig clientConfig)
         {
@@ -302,7 +303,6 @@ int main()
     do {
         message.clear();
         getline(cin, message);
-        cout << "Received command '" << message << "'." << endl;
         if(message == commandstr_exit)
             break;
 
