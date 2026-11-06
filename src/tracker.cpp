@@ -1,28 +1,11 @@
-#include <cstring>
-#include <mutex>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <chrono>
 #include <thread>
-#include <vector>
-#include <cerrno>
 #include <atomic>
-#include <functional>
-#include <optional>
 #include <map>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <iostream>
-#include <fstream>
 
 #include "common.hpp"
+#include "global_includes.hpp"
 
 using namespace peer_to_peer;
-
-// TOTAL TODOS
-// Line 21: Verify peersockets and peerinput has proper string data
-// Line 52: Add Multithreading to process multiple peers at the same time
 
 /**
  * A set of configuration values relating to a peer's server thread
@@ -76,11 +59,22 @@ static optional<TrackerServerConfig> try_parse_sconfig(string filename)
     };
 }
 
+using namespace std::chrono;
+using namespace std::chrono_literals;
 class Tracker
-{    
+{
     public:
         /// The maximum number of peers that can be connected to a tracker server concurrently
         static constexpr int16_t MAX_PEERS = 256;
+
+        /// The time between iterations of the peer listening loop
+        static constexpr duration PEER_LISTEN_DELAY = 10ms;
+
+        /// The time between iterations of the peer thread management loop
+        static constexpr duration PEER_MANAGE_DELAY = 10ms;
+
+        /// The time between iterations of each peer's work loop
+        static constexpr duration PEER_WORK_DELAY = 1ms;
 
     private:
         /**
@@ -157,6 +151,8 @@ class Tracker
             cout << "Listening for peers..." << endl;
             while(!(this -> killswitch -> load()))
             {
+                this_thread::sleep_for(PEER_LISTEN_DELAY);
+
                 // Max peer connection count has been hit, wait until a slot frees up to continue accepting connections
                 if(next_peer_index -> load() == MAX_PEERS)
                     continue;
@@ -220,6 +216,8 @@ class Tracker
             // Ensure that no more active connections need to be handled before shutting this thread off
             while(!(this -> killswitch -> load()) || foundActiveConnection)
             {
+                this_thread::sleep_for(PEER_MANAGE_DELAY);
+
                 foundActiveConnection = false;
                 for(int i = 0; i < MAX_PEERS; i ++)
                 {
@@ -315,6 +313,8 @@ class Tracker
             char buf[MAX_MESSAGE_BUFFER_SIZE];
             while (!this -> killswitch -> load())
             {
+                this_thread::sleep_for(PEER_WORK_DELAY);
+
                 fill_n(buf, MAX_MESSAGE_BUFFER_SIZE, '\0');
                 int recvBytes = recv(connection_data -> peer_fd, buf, sizeof(buf), 0);
                 if (recvBytes <= 0) // if failure to recieve stop. Store data at buf

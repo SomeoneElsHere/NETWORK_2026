@@ -10,7 +10,7 @@ PEER_EXE = $(BUILD_DIR)peer
 TRACKER_EXE = $(BUILD_DIR)tracker
 COPY_FILES = $(patsubst $(COPY_DIR)%,$(BUILD_DIR)%,$(wildcard $(COPY_DIR)*))
 
-COMMON_HEADER = $(SRC_DIR)common.hpp
+COMMON_HEADERS = $(SRC_DIR)common.hpp $(SRC_DIR)global_includes.hpp
 
 EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
 
@@ -41,7 +41,7 @@ $(BUILD_DIR)%: $(COPY_DIR)% | $(BUILD_DIR)
 COMMON_OBJS = $(BUILD_DIR)common.out
 
 # common.out
-$(BUILD_DIR)common.out: $(SRC_DIR)common.cpp $(COMMON_HEADER) | $(BUILD_DIR)
+$(BUILD_DIR)common.out: $(SRC_DIR)common.cpp $(COMMON_HEADERS) | $(BUILD_DIR)
 	$(COMPILE) $(SRC_DIR)common.cpp -o $(BUILD_DIR)common.out
 
 # -- Peer program --
@@ -53,7 +53,7 @@ $(PEER_EXE): $(PEER_OBJS) | $(BUILD_DIR)clientThreadConfig.cfg
 	$(LINK) $(PEER_EXE) $(PEER_OBJS) $(LIBS)
 
 # peer.out
-$(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp $(COMMON_HEADER) | $(BUILD_DIR)
+$(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp $(COMMON_HEADERS) | $(BUILD_DIR)
 	$(COMPILE) $(SRC_DIR)peer.cpp -o $(BUILD_DIR)peer.out
 
 # -- Tracker program --
@@ -65,7 +65,7 @@ $(TRACKER_EXE): $(TRACKER_OBJS) | $(BUILD_DIR)sconfig
 	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS) $(LIBS)
 
 # tracker.out
-$(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp $(COMMON_HEADER) | $(BUILD_DIR)
+$(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp $(COMMON_HEADERS) | $(BUILD_DIR)
 	$(COMPILE) $(SRC_DIR)tracker.cpp -o $(BUILD_DIR)tracker.out
 
 # -- Additional Actions --

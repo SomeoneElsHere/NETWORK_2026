@@ -1,21 +1,5 @@
-#include <arpa/inet.h>
-#include <cstring>
-#include <iostream>
-#include <fstream>
-#include <netinet/in.h>
-#include <optional>
-#include <stdexcept>
-#include <sys/socket.h>
-#include <errno.h>
-#include <typeindex>
-#include <unistd.h>
-#include <chrono>
-#include <thread>
-#include <vector>
-#include <cerrno>
-#include <string>
-
 #include "common.hpp"
+#include "global_includes.hpp"
 
 using namespace std;
 using namespace peer_to_peer;
@@ -65,7 +49,7 @@ static optional<PeerClientConfig> try_parse_peer_client_config(string filename)
         intUpdateInterval = stoi(strUpdateInterval);
         fileStream.close();
     }
-    catch (...) 
+    catch (...)
     {
         // One of the options could not be parsed correctly
         fileStream.close();
@@ -178,7 +162,7 @@ class Peer
             if(this -> tracker_socket_fd < 0)
                 return false;
 
-            sockaddr* tracker_socket_addr = (struct sockaddr*)(&this -> client_config.tracker_addr);
+            sockaddr* tracker_socket_addr = (sockaddr*)(&this -> client_config.tracker_addr);
 
             int success = connect(
                 this -> tracker_socket_fd,
@@ -278,12 +262,15 @@ int main()
 
     int error_code = 0;
     Peer peer(clientConfig.value());
+
+    cout << "Attempting to open the socket..." << endl;
     if(!peer.try_init_socket(&error_code))
     {
         cout << "Could not open a socket for connection. Error code: " << error_code << endl;
         return 2;
     }
     
+    cout << "Attempting to establish a connection..." << endl;
     if(!peer.try_connect(&error_code))
     {
         cout << "Connection could not be successfully established. Error code: " << error_code << endl;

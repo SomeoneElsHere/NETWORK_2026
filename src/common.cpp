@@ -1,20 +1,13 @@
 /* Adapted from Jankatay's "util.hpp" */
+#include "common.hpp"
+#include "global_includes.hpp"
 
 // standard library
-#include <iostream>
 #include <cstdio>
-#include <string>
-#include <vector>
-#include <cstdint>
 #include <ctime>
 
 // unix
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdlib.h>
-
-#include "common.hpp"
 
 constexpr int iso8601_buffer_length = 20; // remind me to update it in the year 9999
 

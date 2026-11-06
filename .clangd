@@ -1,2 +1,8 @@
 Documentation:
     CommentFormat: Doxygen
+
+---
+If:
+    PathMatch: .*\global_includes.hpp
+Diagnostics:
+    UnusedIncludes: None
