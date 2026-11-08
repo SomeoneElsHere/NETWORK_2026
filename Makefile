@@ -1,90 +1,50 @@
-# -- Configuration options --
-# ---------------------------
-SRC_DIR = src/
-COPY_DIR = copy/
-BUILD_DIR = build/
-CPP_VERSION = 17
-COMMON_FLAGS = -g -std=c++$(CPP_VERSION)
+include MF_global.mk
 
-PEER_EXE = $(BUILD_DIR)peer
-TRACKER_EXE = $(BUILD_DIR)tracker
-COPY_FILES = $(patsubst $(COPY_DIR)%,$(BUILD_DIR)%,$(wildcard $(COPY_DIR)*))
+TRACKER = $(DIR_BUILD)/tracker/tracker
+PEER = $(DIR_BUILD)/peer/peer
 
-COMMON_HEADERS = $(SRC_DIR)common.hpp $(SRC_DIR)global_includes.hpp
+PEER_FILES = $(patsubst $(wildcard $(DIR_COPY)/peer/*),$(DIR_COPY)/peer/%,$(DIR_BUILD)/peer/%)
+TRACKER_FILES = $(patsubst $(wildcard $(DIR_COPY)/tracker/*),$(DIR_COPY)/tracker/%,$(DIR_BUILD)/tracker/%)
 
-EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
+# -- Build Targets --
+# -------------------
+.PHONY: build_all
+build_all: build_tracker build_peer
+#	Nothing else to do here.
 
-# -- Command formatting --
-# ------------------------
+.PHONY: build_tracker
+build_tracker: $(TRACKER) $(TRACKER_FILES)
+#	Nothing else to do here.
 
-# Command format prefixes
-COMPILE = g++ $(COMMON_FLAGS) -c
-LINK = g++ $(COMMON_FLAGS) -o
-LIBS = #-lmd #TODO: check this with TA/professor, look at lib/util.hpp for more info
+$(TRACKER) $(TRACKER_FILES):
+	$(MAKE) -f MF_tracker.mk build
 
-# -- Main compile target --
-# -------------------------
+.PHONY: build_peer
+build_peer: $(PEER)
+#	Nothing else to do here.
 
-# Ensure all executables are built and included files are copied when running "make"
-all: $(EXE_NAMES) $(COPY_FILES)
+$(PEER) $(PEER_FILES):
+	$(MAKE) -f MF_peer.mk build
 
-# Create build directory if it doesn't exist
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+# -- Clean Targets --
+# -------------------
+.PHONY: clean_all
+clean_all: clean_tracker clean_peer
+	
+.PHONY: clean_tracker
+clean_tracker:
+	$(MAKE) -f MF_tracker.mk clean
+	
+.PHONY: clean_peer
+clean_peer:
+	$(MAKE) -f MF_peer.mk clean
 
-# Copy all included files to build directory
-$(BUILD_DIR)%: $(COPY_DIR)% | $(BUILD_DIR)
-	cp $< $@
-
-# -- Common code --
+# -- Run Targets --
 # -----------------
-COMMON_OBJS = $(BUILD_DIR)common.out
-
-# common.out
-$(BUILD_DIR)common.out: $(SRC_DIR)common.cpp $(COMMON_HEADERS) | $(BUILD_DIR)
-	$(COMPILE) $(SRC_DIR)common.cpp -o $(BUILD_DIR)common.out
-
-# -- Peer program --
-# ------------------
-PEER_OBJS = $(BUILD_DIR)peer.out $(COMMON_OBJS)
-
-# Main executable
-$(PEER_EXE): $(PEER_OBJS) | $(BUILD_DIR)clientThreadConfig.cfg
-	$(LINK) $(PEER_EXE) $(PEER_OBJS) $(LIBS)
-
-# peer.out
-$(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp $(COMMON_HEADERS) | $(BUILD_DIR)
-	$(COMPILE) $(SRC_DIR)peer.cpp -o $(BUILD_DIR)peer.out
-
-# -- Tracker program --
-# ---------------------
-TRACKER_OBJS = $(BUILD_DIR)tracker.out $(COMMON_OBJS)
-
-# Main executable
-$(TRACKER_EXE): $(TRACKER_OBJS) | $(BUILD_DIR)sconfig
-	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS) $(LIBS)
-
-# tracker.out
-$(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp $(COMMON_HEADERS) | $(BUILD_DIR)
-	$(COMPILE) $(SRC_DIR)tracker.cpp -o $(BUILD_DIR)tracker.out
-
-# -- Additional Actions --
-# ------------------------
-
-# Run the tracker server
 .PHONY: run_tracker
-run_tracker: $(TRACKER_EXE) $(BUILD_DIR)sconfig
-	cd ./build && ./tracker
+run_tracker: $(TRACKER)
+	cd $(DIR_BUILD)/tracker && ./tracker
 
-# Run the peer
 .PHONY: run_peer
-run_peer: $(PEER_EXE) $(BUILD_DIR)clientThreadConfig.cfg
-	cd ./build && ./peer
-
-# Clean the build folder
-.PHONY: clean
-clean:
-	rm -f $(BUILD_DIR)*.out
-	rm -f $(EXE_NAMES)
-	rm -f $(COPY_FILES)
-	rmdir $(BUILD_DIR)
+run_peer: $(PEER)
+	cd $(DIR_BUILD)/peer && ./peer

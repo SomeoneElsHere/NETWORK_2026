@@ -1,12 +1,10 @@
-/* Adapted from Jankatay's "util.hpp" */
-#include "common.hpp"
-#include "global_includes.hpp"
+#include "util.hpp"
 
-// standard library
+// C++ Standard Library
 #include <cstdio>
 #include <ctime>
 
-// unix
+// Unix Specification
 #include <stdlib.h>
 
 constexpr int iso8601_buffer_length = 20; // remind me to update it in the year 9999
