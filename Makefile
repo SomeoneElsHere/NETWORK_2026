@@ -12,10 +12,9 @@ UTIL_FLAGS = ${MD_FLAGS}
 UTIL_LIBS = ${MD_LIBS}
 
 # libtracker, depends on libutil (local)
-TRACKER_DEPS = src/tracker/tracker.hpp src/tracker/worker.hpp ${UTIL_DEPS}
+TRACKER_DEPS = src/tracker/tracker.hpp src/tracker/files.hpp src/tracker/worker.hpp ${UTIL_DEPS}
 TRACKER_FLAGS = ${UTIL_FLAGS}
 TRACKER_LIBS = ${UTIL_LIBS}
-
 
 # compilations
 run: build/tracker
@@ -24,8 +23,7 @@ run: build/tracker
 build/tracker: src/tracker.cpp ${TRACKER_DEPS}
 	${CPP} ${MD_FLAGS} -o build/tracker $< ${MD_LIBS}
 
-
 # mix
 .PHONY: clean
 clean:
-	rm -rf build/*
+	rm -rf build/* data/*

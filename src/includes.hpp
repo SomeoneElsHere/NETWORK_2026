@@ -6,9 +6,11 @@
 // standard
 #include <string>
 #include <list>
+#include <map>
 #include <vector>
-#include <algorithm>
+#include <fstream>
 #include <filesystem>
+#include <cinttypes> 
 using namespace std;
 using namespace filesystem;
 
@@ -16,6 +18,7 @@ using namespace filesystem;
 #include <unistd.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -25,6 +28,7 @@ using namespace filesystem;
 
 // our own headerfiles
 #include "./mix/util.hpp"
+// #include "./parser/trackerfile.hpp" not in use yet, still experimenting
 #include "./tracker/files.hpp"
 #include "./tracker/worker.hpp"
 #include "./tracker/tracker.hpp"

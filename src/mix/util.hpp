@@ -167,5 +167,102 @@ ssize_t send_string(int sockfd, string& msg) {
   return send(sockfd, msg.c_str(), msg.length(), 0);
 }
 
+// Turn MSG -> <MSG>\n
+// ---------------------------------------------
+string encapsulate(string msg) {
+  const static string begin_mark = "<";
+  msg = begin_mark + msg + ">\n";
+  return msg;
+}
+
+// Turn <MSG>\n -> MSG
+// Sets status false if wrong format, true otherwise.
+// Accepts "<>\n" as correct empty string
+// ---------------------------------------------
+bool decapsulate(string& msg) {
+  // '<'
+  if(msg.empty()) return false;
+  if(msg.front() != '<') return false;
+  msg.erase(0, 1);
+
+  // '\n'
+  if(msg.empty()) return false;
+  if(msg.back() != '\n') return false;
+  msg.pop_back();
+
+  // '>'
+  if(msg.empty()) return false;
+  if(msg.back() != '>') return false;
+  msg.pop_back();
+
+  // success
+  return true;
+}
+
+// check if a given string is a valid number fast
+// ---------------------------------------------
+bool valid_uint(string& alleged_number) {
+  // sanitize 
+  if(alleged_number.empty()) return false;
+
+  // convert and see
+  errno = 0;
+  char* endptr = NULL;
+  strtoumax(alleged_number.c_str(), &endptr, 10); 
+  return ((*endptr) == '\0') && (endptr != alleged_number.c_str()) && (!errno);
+}
+
+
+// check if a given string is a valid md5 fast
+// ---------------------------------------------
+bool valid_md5(string& alleged_md5) {
+  // sanitize  and split md5 string into pieces
+  if(alleged_md5.length() != 32) return false;
+  for(char c : alleged_md5) {
+    bool valid_letter = (c >= 'a') || (c >= 'A');
+    valid_letter &= (c <= 'f') || (c <= 'F');
+    valid_letter |= isdigit(c);
+    if(!valid_letter) return false;
+  }
+  // success
+  return true;
+}
+
+
+// Check if following are valid ip and port number
+// ---------------------------------------------
+bool valid_address(string ip, string port) {
+  // sanitize and init
+  if(!valid_uint(port)) return false; // fastest one
+  struct sockaddr_in bin_ipv4;
+  struct sockaddr_in6 bin_ipv6;
+
+  // convert and see
+  if(!inet_pton(AF_INET, ip.c_str(), &bin_ipv4)) return false;
+  if(!inet_pton(AF_INET, ip.c_str(), &bin_ipv6)) return false;
+  return true;
+}
+
+// split a string around some given char delim
+// will assume multiple delims in a rows as empty strings
+// -----------------------------------------------------
+vector<string> strsplit(string& str, char delim = ' ') {
+  //init
+  vector<string> ret;
+  string tmp = "";
+
+  // process 
+  for(char c : str) {
+    if(c == delim) {
+      ret.push_back(tmp);
+      tmp.clear();
+    } else tmp.push_back(c);
+  }
+  if(!tmp.empty()) ret.push_back(tmp);
+
+  // finish
+  return ret;
+}
+
 
 #endif

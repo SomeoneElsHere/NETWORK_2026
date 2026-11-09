@@ -8,7 +8,7 @@ constexpr int LISTEN_BACKLOG = 50; // how many connections to listen for at once
 class Tracker {
   // variables
   pthread_mutex_t worker_lock = PTHREAD_MUTEX_INITIALIZER; // workers will use this to stay sync'd
-  list<TrackerFile> tracker_files = {};                    // list of tracker files.
+  list<string> tracker_files = {};// the strings for quickly listing
   AddrinfoExt tracker_info = {};  // Info on self. Address, port, socket, etc.
   time_t start_time = -1;         // when the server was first started, read-only.
 
@@ -28,10 +28,6 @@ public:
 
   // Search for a tracker file and return the iterator to it.
   bool send_trackerfile(string& name, int sockfd);
-
-private:
-  // find a tracker file by string name
-  TrackerFile search_file(string& name);
 };
 
 
