@@ -1,63 +1,62 @@
-# -- Configuration options --
-# ---------------------------
-SRC_DIR = src/
-BUILD_DIR = build/
-CPP_VERSION = 17
-COMMON_FLAGS = -g -std=c++$(CPP_VERSION)
+include MF_global.mk
 
-PEER_EXE = $(BUILD_DIR)peer
-TRACKER_EXE = $(BUILD_DIR)tracker
+TRACKER := $(DIR_BUILD)/tracker/tracker
+PEER := $(DIR_BUILD)/peer/peer
 
-EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
+PEER_FILES := $(patsubst $(wildcard $(DIR_COPY)/peer/*),$(DIR_COPY)/peer/%,$(DIR_BUILD)/peer/%)
+TRACKER_FILES := $(patsubst $(wildcard $(DIR_COPY)/tracker/*),$(DIR_COPY)/tracker/%,$(DIR_BUILD)/tracker/%)
 
-# -- Command formatting --
-# ------------------------
+# -- Build Targets --
+# -------------------
+.PHONY: build_all
+build_all: build_tracker build_peer
+#	Nothing else to do here.
 
-# Command format prefixes
-COMPILE = g++ $(COMMON_FLAGS) -c
-LINK = g++ $(COMMON_FLAGS) -o
-LIBS = -lmd #TODO: check this with TA/professor, look at lib/util.hpp for more info
+$(TRACKER): build_tracker
 
-# -- Main compile target --
+.PHONY: build_tracker
+build_tracker:
+	$(MAKE) -f MF_tracker.mk build DEBUG_FLAGS=""
+
+$(PEER): build_peer
+
+.PHONY: build_peer
+build_peer:
+	$(MAKE) -f MF_peer.mk build DEBUG_FLAGS=""
+
+# -- Build Debug Targets --
 # -------------------------
+.PHONY: build_all_debug
+build_all_debug: build_tracker_debug build_peer_debug
+#	Nothing else to do here.
 
-# Ensure all executables are built when running "make"
-all: $(EXE_NAMES)
+.PHONY: build_tracker_debug
+build_tracker_debug:
+	$(MAKE) -f MF_tracker.mk build
 
-# -- Peer program --
-# ------------------
-PEER_OBJS = $(BUILD_DIR)peer.out
+.PHONY: build_peer_debug
+build_peer_debug:
+	$(MAKE) -f MF_peer.mk build
 
-# Main executable
-$(BUILD_DIR)peer: $(PEER_OBJS)
-	$(LINK) $(PEER_EXE) $(PEER_OBJS) $(LIBS)
+# -- Clean Targets --
+# -------------------
+.PHONY: clean_all
+clean_all: clean_tracker clean_peer
+	
+.PHONY: clean_tracker
+clean_tracker:
+	$(MAKE) -f MF_tracker.mk clean
+	
+.PHONY: clean_peer
+clean_peer:
+	$(MAKE) -f MF_peer.mk clean
 
-# peer.out
-$(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp
-	$(COMPILE) $(SRC_DIR)peer.cpp -o $(BUILD_DIR)peer.out
+# -- Run Targets --
+# -----------------
+.PHONY: run_tracker
+run_tracker: $(TRACKER)
+	cd $(DIR_BUILD)/tracker && ./tracker
 
-# -- Tracker program --
-# ---------------------
-TRACKER_OBJS = $(BUILD_DIR)tracker.out
-
-# Main executable
-$(BUILD_DIR)tracker: $(TRACKER_OBJS)
-	$(LINK) $(TRACKER_EXE) $(TRACKER_OBJS) $(LIBS)
-
-# tracker.out
-$(BUILD_DIR)tracker.out: $(SRC_DIR)tracker.cpp
-	$(COMPILE) $(SRC_DIR)tracker.cpp -o $(BUILD_DIR)tracker.out
-
-# -- Additional Actions --
-# ------------------------
-
-# Run tracker in background, wait one second, then run peer
-.PHONY: run
-run: $(EXE_NAMES)
-	$(TRACKER_EXE) & sleep 1; $(PEER_EXE)
-
-# Clean the build folder
-.PHONY: clean
-clean:
-	rm -f $(BUILD_DIR)*.out
-	rm -f $(BUILD_DIR)$(EXE_NAMES)
+.PHONY: run_peer
+run_peer: $(PEER)
+	cd $(DIR_BUILD)/peer && ./peer
