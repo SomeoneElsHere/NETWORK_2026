@@ -1,11 +1,6 @@
-#include "util.hpp"
+#include "strings.hpp"
 
-// C++ Standard Library
-#include <cstdio>
-#include <ctime>
-
-// Unix Specification
-#include <stdlib.h>
+using namespace std;
 
 constexpr int iso8601_buffer_length = 20; // remind me to update it in the year 9999
 
@@ -13,12 +8,57 @@ constexpr int seconds_per_minute = 60;
 constexpr int seconds_per_hour = seconds_per_minute * 60;
 constexpr int seconds_per_day = seconds_per_hour * 24;
 
-using namespace std;
-
 namespace peer_to_peer
 {
+    /* Adapted from Jankatay's "util.hpp" */
+
     ///
-    vector<string> str_split(string& str, char delim)
+    bool str_to_args(const string& str, vector<string>& arguments)
+    {
+        arguments = vector<string>();
+        
+        // sanitize and init
+        if(str.empty())
+            return true;
+
+        bool dquotes = false, quotes = false, escape = false;
+        string current = "";
+
+        // while looping over the string
+        for(unsigned char c : str) {
+            // special characters
+            if((c == '"') && (!quotes) && (!escape)) // handle double quotations
+                dquotes = !dquotes;
+            else if((c == '\'') && (!dquotes) && (!escape)) // handle single quotations
+                quotes = !quotes;
+            else if(c == '\\' && !escape) { // the escape/backslash
+                escape = true; 
+                continue;
+            }
+            else if(isspace(c) && (!quotes) && (!dquotes) && (!escape)) { // whitespace
+                arguments.push_back(current);
+                current.clear();
+            } else if(isprint(c)) current.push_back(c);                       // normal characters
+            else {                                                            // unkown, unprintable characters
+                fprintf(stderr, "WARNING - Invalid character \"%du\"-> %s:%d\n", c, __FILE__, __LINE__);
+                return false;
+            } 
+            escape = false;
+        }
+
+        // sanitize and push last string if there is any left
+        if(quotes || dquotes || escape) {
+          fprintf(stderr, "WARNING - Unclosed quotations or stray backslash -> %s:%d\n", __FILE__, __LINE__);
+          return false;
+        }
+        if(!current.empty())
+            arguments.push_back(current);
+
+        return true;
+    }
+
+    ///
+    vector<string> str_split(const string& str, char delim)
     {
         // init
         if(str.empty()) return vector<string>{};
@@ -73,54 +113,5 @@ namespace peer_to_peer
       ret += to_string(minutes) + " minutes, and ";
       ret += to_string(diff) + " seconds.";
       return ret;
-    }
-
-    ///
-    ssize_t send_string(int sockfd, string& msg) {
-        return send(sockfd, msg.c_str(), msg.length(), 0);
-    }
-
-    ///
-    long int port_from_addrinfo(addrinfo* info) {
-      if(!info) return 0; // sanitize
-
-      // get address and port
-      char serv[NI_MAXSERV] = "";
-      int err_status = getnameinfo(info->ai_addr, info->ai_addrlen,
-                                   NULL, 0, serv, NI_MAXSERV, NI_NUMERICSERV);
-      if(err_status) return -1; // error
-
-      // convert to base-10 int
-      // TODO: sanitize this strtol
-      char* endptr = NULL;
-      long int ret = strtol(serv, &endptr, 10);
-
-      // sanitize and return
-      if(!endptr) return -1;
-      if(*endptr) return -1;
-      return ret;
-    }
-
-    ///
-    addrinfo* make_connection_list(int16_t port) {
-      // init options
-      struct addrinfo addropts = {};
-      addropts.ai_family = AF_INET;       // ipv4
-      addropts.ai_socktype = SOCK_STREAM; // tcp
-      addropts.ai_flags = AI_PASSIVE;     // bind-able
-    
-      // Convert port from 16-bit integer to C string
-      char port_str[6] = "";
-      snprintf(port_str, sizeof(port_str), "%d", port);
-
-      // make a list of all configurations with those options
-      addrinfo* addrList = nullptr;
-      int err_status = getaddrinfo(NULL, port_str, &addropts, &addrList) < 0;
-      if(err_status) {
-        fprintf(stderr, "ERROR - getaddrinfo -> %s:%d\n", __FILE__, __LINE__);
-        return nullptr;
-      }
-    
-      return addrList; // success
     }
 }

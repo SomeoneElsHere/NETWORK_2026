@@ -1,5 +1,5 @@
-#include "../constants.hpp"
-#include "../util.hpp"
+#include "../util/networking.hpp"
+#include "files.hpp"
 #include "tracker.hpp"
 
 // C++ Standard Library
@@ -15,10 +15,56 @@
 #include <unistd.h>
 
 using namespace std;
+
 using namespace peer_to_peer::tracker;
 
 namespace peer_to_peer
 {
+    ///
+    Tracker::Tracker()
+    {
+        this -> tracker_config = TrackerServerConfig{
+            10101,
+            "shared/"
+        };
+        construct();
+    }
+
+    ///
+    Tracker::Tracker(TrackerServerConfig trackerConfig)
+    {
+        this -> tracker_config = trackerConfig;
+        construct();
+    }
+
+    ///
+    Tracker::~Tracker()
+    {
+        this -> close_server();
+
+        this -> ip_index_mappings.clear();
+        delete this -> next_peer_index;
+        delete this -> killswitch;
+    }
+
+    ///
+    void Tracker::construct()
+    {
+        this -> tracker_addr = sockaddr_in();
+        this -> tracker_socket_fd = -1;
+
+        this -> ip_index_mappings = map<string, int>();
+        for(int i = 0; i < MAX_PEERS; i ++)
+        {
+            connected_peers[i] = nullopt;
+        }
+        this -> next_peer_index = new atomic<int>(0);
+
+        this -> peer_listener = nullptr;
+        this -> peer_connection_manager = nullptr;
+        this -> killswitch = new atomic<bool>(false);
+    }
+
     ///
     void Tracker::listen_for_peers(NET_ERROR_HANDLER on_error)
     {
@@ -29,7 +75,7 @@ namespace peer_to_peer
             return;
         }
 
-        cout << "Listening for peers..." << endl;
+        _debug_print("Listening for peers...");
         while(!(this -> killswitch -> load()))
         {
             this_thread::sleep_for(PEER_LISTEN_DELAY);
@@ -81,13 +127,13 @@ namespace peer_to_peer
         }
 
         // Killswitch activated; no need to continue listening
-        cout << "Stopped listening for peers." << endl;
+        _debug_print("Stopped listening for peers.");
     }
 
     ///
     void Tracker::manage_peer_connections()
     {
-        cout << "Peer management thread activated." << endl;
+        _debug_print("Peer management thread activated.");
 
         mutex guardian;
         bool foundActiveConnection = true;
@@ -104,32 +150,43 @@ namespace peer_to_peer
                 {
                     foundActiveConnection = true;
 
-                    // Guard against main thread/peer threads manipulating peer slots/data                        
-                    guardian.lock();
                     peer_connection* connection = connected_peers[i].value();
+                    Worker* worker = connection -> worker;
 
                     // Force peer worker thread to give up receiving bytes if the killswitch is activated
-                    if(connection -> peer_fd != -1 && this -> killswitch -> load())
+                    //if(connection -> peer_fd != -1 && this -> killswitch -> load())
+                    //{
+                    //    shutdown(connection -> peer_fd, SHUT_RD);
+                    //}
+                    if(this -> killswitch -> load())
                     {
-                        shutdown(connection -> peer_fd, SHUT_RD);
+                        worker -> signal_to_stop();
+                        worker -> wait_for_completion();
                     }
 
-                    if(connection -> completed)
+                    if(worker -> is_complete())
                     {
-                        ip_index_mappings.erase(connection -> peer_address);
+                        // Guard against main thread/peer threads manipulating peer slots/data
+                        guardian.lock();
+                        
+                        ip_index_mappings.erase(worker -> peer_address);
 
                         // Delete peer connection data and free slot
                         // Use mutex to prevent access from main thread
-                        cout << "Clearing peer data for slot " << i << "." << endl;
-                        delete connection -> worker_thread;
+                        
+                        _debug_print("Clearing peer data for slot " + to_string(i) + ".");
+                        delete worker;
+                        connection -> worker = nullptr;
+
                         delete connection;
                         connected_peers[i] = nullopt;
 
                         // Update next peer slot if a lower one is available
                         if(next_peer_index -> load() > i)
                             next_peer_index -> store(i);
+
+                        guardian.unlock();
                     }
-                    guardian.unlock();
                 }
                 else
                 {
@@ -140,35 +197,46 @@ namespace peer_to_peer
             }
         }
 
-        cout << "Peer management thread ended." << endl;
+        _debug_print("Peer management thread ended.");
     }
 
     ///
     void Tracker::open_peer_connection(int peer_fd, sockaddr_in peer_ipv4)
     {
-        char ipaddr[INET_ADDRSTRLEN];
-        inet_ntop(
-            AF_INET,
-            &(peer_ipv4.sin_addr),
-            ipaddr,
-            INET_ADDRSTRLEN
-        ); //get ip as char*
+        //char ipaddr[INET_ADDRSTRLEN];
+        //inet_ntop(
+        //    AF_INET,
+        //    &(peer_ipv4.sin_addr),
+        //    ipaddr,
+        //    INET_ADDRSTRLEN
+        //); //get ip as char*
 
-        std::string Ipaddrstring(ipaddr); 
-        if(this -> ip_index_mappings.find(Ipaddrstring) == ip_index_mappings.end()) //does the IP already exist?
+        //std::string Ipaddrstring(ipaddr);
+        int peer_index = next_peer_index -> load();
+        Worker* worker = new Worker(
+            peer_fd,
+            peer_ipv4,
+            produce_file_list(),
+            true
+        );
+        peer_connection* new_connection = new peer_connection{
+            worker,
+            peer_index
+        };
+
+        if(this -> ip_index_mappings.find(worker -> peer_address) == ip_index_mappings.end()) //does the IP already exist?
         {
-            ip_index_mappings[Ipaddrstring] = peer_fd; //if not, create new handle for IP
+            ip_index_mappings[worker -> peer_address] = peer_fd; //if not, create new handle for IP
         }
 
-        // i = 0; //debug for 1 peer
-        peer_connection* new_connection = new peer_connection{ peer_fd, Ipaddrstring };
-        new_connection -> worker_thread = new thread(&Tracker::peer_worker_task, this, new_connection);
-        new_connection -> worker_thread -> detach(); //let it do its thang
+        //// i = 0; //debug for 1 peer
+        //peer_connection* new_connection = new peer_connection{ peer_fd, Ipaddrstring };
+        //new_connection -> worker_thread = new thread(&Tracker::peer_worker_task, this, new_connection);
+        //new_connection -> worker_thread -> detach(); //let it do its thang
 
-        int peer_index = next_peer_index -> load();
         this -> connected_peers[peer_index] = new_connection;
         new_connection -> DEBUG_peerarray_index = peer_index;
-        cout << "Opened peer connection on slot " << peer_index << "." << endl;
+        _debug_print("Opened peer connection on slot " + to_string(peer_index) + ".");
 
         // Find the next available slot for a peer connection
         do
@@ -179,85 +247,40 @@ namespace peer_to_peer
         next_peer_index -> store(peer_index);
     }
 
-    ///
-    void Tracker::peer_worker_task(peer_connection* connection_data)
-    {
-        char buf[MAX_MESSAGE_BUFFER_SIZE];
-        while (!this -> killswitch -> load())
-        {
-            this_thread::sleep_for(PEER_WORK_DELAY);
-
-            fill_n(buf, MAX_MESSAGE_BUFFER_SIZE, '\0');
-            int recvBytes = recv(connection_data -> peer_fd, buf, sizeof(buf), 0);
-            if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
-            {
-                break;
-            }
-
-            std::string str(buf); // convert buf to a string
-            if(connection_data -> last_message.has_value())
-                connection_data -> last_message = (connection_data -> last_message.value()) + str;
-            else
-                connection_data -> last_message = str;
-
-            // output string (debug)
-            std::cout << "["<< connection_data -> DEBUG_peerarray_index << "]" << "["<< recvBytes << "]"<< str << " : " << connection_data -> last_message . value_or("<null>") << std::endl;
-
-        }
-
-        // Close peer connection before end of thread
-        if(connection_data -> peer_fd != -1)
-        {
-            close(connection_data -> peer_fd);
-            connection_data -> peer_fd = -1;
-        }
-        connection_data -> completed = true;
-    }
-
-    ///
-    void Tracker::init()
-    {
-        this -> tracker_addr = sockaddr_in();
-        this -> tracker_socket_fd = -1;
-
-        this -> ip_index_mappings = map<string, int>();
-        for(int i = 0; i < MAX_PEERS; i ++)
-        {
-            connected_peers[i] = nullopt;
-        }
-        this -> next_peer_index = new atomic<int>(0);
-
-        this -> peer_listener = nullptr;
-        this -> peer_connection_manager = nullptr;
-        this -> killswitch = new atomic<bool>(false);
-    }
-
-    ///
-    Tracker::Tracker()
-    {
-        this -> tracker_config = TrackerServerConfig{
-            10101,
-            "shared/"
-        };
-        init();
-    }
-
-    ///
-    Tracker::Tracker(TrackerServerConfig trackerConfig)
-    {
-        this -> tracker_config = trackerConfig;
-        init();
-    }
-
-    ///
-    Tracker::~Tracker()
-    {
-        this -> close_server();
-
-        this -> ip_index_mappings.clear();
-        delete this -> next_peer_index;
-        delete this -> killswitch;
-    }
+    /////
+    //void Tracker::peer_worker_task(peer_connection* connection_data)
+    //{
+    //    char buf[MAX_MESSAGE_BUFFER_SIZE];
+    //    while (!this -> killswitch -> load())
+    //    {
+    //        this_thread::sleep_for(PEER_WORK_DELAY);
+//
+    //        fill_n(buf, MAX_MESSAGE_BUFFER_SIZE, '\0');
+    //        int recvBytes = recv(connection_data -> peer_fd, buf, sizeof(buf), 0);
+    //        if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
+    //        {
+    //            break;
+    //        }
+//
+    //        std::string str(buf); // convert buf to a string
+    //        if(connection_data -> last_message.has_value())
+    //            connection_data -> last_message = (connection_data -> last_message.value()) + str;
+    //        else
+    //            connection_data -> last_message = str;
+//
+    //        // output string (debug)
+    //        std::cout << "["<< connection_data -> DEBUG_peerarray_index << "]" << "["<< recvBytes << "]"<< str << " : " << connection_data -> last_message . value_or("<null>") << std::endl;
+    //        
+    //    }
+//
+    //    // Close peer connection before end of thread
+    //    if(connection_data -> peer_fd != -1)
+    //    {
+    //        close(connection_data -> peer_fd);
+    //        connection_data -> peer_fd = -1;
+    //    }
+    //    connection_data -> completed = true;
+    //}
 
     ///
     bool Tracker::is_listening()
@@ -271,7 +294,7 @@ namespace peer_to_peer
         if(this -> tracker_socket_fd >= 0)
             return false;
 
-        cout << "Attempting to initialize tracker server..." << endl;
+        _debug_print("Attempting to initialize tracker server...");
         addrinfo* addrList = make_connection_list(this -> tracker_config.port); 
 
         for(addrinfo* addr = addrList; addr; addr = addrList->ai_next)
@@ -291,7 +314,7 @@ namespace peer_to_peer
             { 
                 this -> peer_connection_manager = new thread(&Tracker::manage_peer_connections, this);
 
-                cout << "Successfully initialized tracker server." << endl;
+                _debug_print("Successfully initialized tracker server.");
                 freeaddrinfo(addrList);
                 return true;
             }
@@ -299,7 +322,7 @@ namespace peer_to_peer
         } // end for(...)
 
         this -> tracker_socket_fd = -1;
-        cout << "Failed to initialize tracker server; no suitable socket found." << endl;
+        _debug_print("Failed to initialize tracker server; no suitable socket found.");
         return false;
     };
 
@@ -308,13 +331,13 @@ namespace peer_to_peer
     {
         if(this -> tracker_socket_fd < 0)
         {
-            cout << "Listening socket is not running." << endl;
+            _debug_print("Listening socket is not running.");
             return false;
         }
 
         if(this -> peer_listener != nullptr)
         {
-            cout << "Peer listener is already running." << endl;
+            _debug_print("Peer listener is already running.");
             return false;
         }
 
@@ -328,32 +351,34 @@ namespace peer_to_peer
         if(this -> tracker_socket_fd < 0)
             return;
 
-        cout << "Closing tracker server..." << endl;
+        _debug_print("Closing tracker server...");
         this -> killswitch -> store(true);
         //shutdown(this -> tracker_socket_fd, SHUT_RD);
 
         // Wait for peer listening thread to close
-        if(this -> peer_listener -> joinable())
-        {
-            this -> peer_listener -> join();
-        }
-
-        delete this -> peer_listener;
-        this -> peer_listener = nullptr;
+        wait_and_dispose_thread(this -> peer_listener);
+        //if(this -> peer_listener -> joinable())
+        //{
+        //    this -> peer_listener -> join();
+        //}
+//
+        //delete this -> peer_listener;
+        //this -> peer_listener = nullptr;
 
         // Wait for all peer connections to be terminated before closing the socket
-        if(this -> peer_connection_manager -> joinable())
-        {
-            this -> peer_connection_manager -> join();
-        }
+        wait_and_dispose_thread(this -> peer_connection_manager);
+        //if(this -> peer_connection_manager -> joinable())
+        //{
+        //    this -> peer_connection_manager -> join();
+        //}
 
-        delete this -> peer_connection_manager;
-        this -> peer_connection_manager = nullptr;
+        //delete this -> peer_connection_manager;
+        //this -> peer_connection_manager = nullptr;
 
         this -> killswitch -> store(false);
 
         close(this -> tracker_socket_fd);
         this -> tracker_socket_fd = -1;
-        cout << "Tracking server closed." << endl;
+        _debug_print("Tracking server closed.");
     }
 }

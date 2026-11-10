@@ -23,5 +23,5 @@ namespace peer_to_peer::tracker
      * @param filename The name of the file to parse
      * @return The parsed tracker server configuration values, if successful; otherwise, nullopt
      */
-    optional<TrackerServerConfig> try_parse_sconfig(string filename);
+    optional<TrackerServerConfig> try_parse_sconfig(const string& filename);
 }

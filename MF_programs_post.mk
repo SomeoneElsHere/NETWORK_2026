@@ -2,8 +2,8 @@
 
 # -- Command formatting --
 # ------------------------
-COMPILE = g++ $(COMMON_FLAGS) $(COMPILE_FLAGS) -c
-LINK = g++ $(COMMON_FLAGS) $(LINK_FLAGS) -o
+COMPILE := g++ $(COMMON_FLAGS) $(COMMON_DEBUG_FLAGS) $(COMPILE_FLAGS) $(COMPILE_DEBUG_FLAGS) -c
+LINK := g++ $(COMMON_FLAGS) $(COMMON_DEBUG_FLAGS) $(LINK_FLAGS) $(LINK_DEBUG_FLAGS) -o
 
 # -- Common build targets --
 # --------------------------
@@ -13,6 +13,19 @@ $(DIR_BUILD):
 # Compile (without linking) each .cpp file
 $(DIR_BUILD)/%.out: $(DIR_SRC)/%.cpp $(DIR_SRC)/%.hpp | $(DIR_BUILD)
 	$(COMPILE) $< -o $@
+
+# -- Utility build target --
+# --------------------------
+DIR_SRC_UTIL = $(DIR_SRC)/util
+DIR_BUILD_UTIL = $(DIR_BUILD)/util
+
+# Compile (without linking) every other .cpp file, ensuring their respective .hpp file exists
+$(DIR_BUILD_UTIL)/%.out: $(DIR_SRC_UTIL)/%.cpp $(DIR_SRC_UTIL)/%.hpp | $(DIR_BUILD_UTIL)
+	$(COMPILE) $< -o $@
+
+# Ensure utility build directory exists
+$(DIR_BUILD_UTIL): 
+	mkdir -p $(DIR_BUILD_UTIL)
 
 # -- Program-specific directories/names --
 # ----------------------------------
@@ -24,7 +37,7 @@ EXECUTABLE = $(DIR_BUILD_PROGRAM)/$(NAME)
 
 # -- Required .out files and extra, copied files --
 # -------------------------------------------------
-REQ_OBJS := $(wildcard $(DIR_SRC_PROGRAM)/*.cpp) $(wildcard $(DIR_SRC)/*.cpp)
+REQ_OBJS := $(wildcard $(DIR_SRC_PROGRAM)/*.cpp) $(wildcard $(DIR_SRC)/*.cpp) $(wildcard $(DIR_SRC_UTIL)/*.cpp)
 REQ_OBJS := $(filter-out $(DIR_SRC_PROGRAM)/main.cpp, $(REQ_OBJS))
 REQ_OBJS := $(REQ_OBJS:$(DIR_SRC)/%.cpp=$(DIR_BUILD)/%.out) $(DIR_BUILD_PROGRAM)/main.out
 
@@ -62,4 +75,6 @@ $(DIR_BUILD_PROGRAM):
 .PHONY: clean
 clean:
 	rm -f $(EXECUTABLE) $(REQ_OBJS) $(REQ_COPY)
-	rmdir $(DIR_BUILD_PROGRAM)
+	rmdir --ignore-fail-on-non-empty $(DIR_BUILD_PROGRAM)
+	rmdir --ignore-fail-on-non-empty $(DIR_BUILD_UTIL)
+	rmdir --ignore-fail-on-non-empty $(DIR_BUILD)

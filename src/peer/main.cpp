@@ -1,3 +1,4 @@
+#include "../util/misc.hpp"
 #include "config.hpp"
 #include "peer.hpp"
 
@@ -57,9 +58,10 @@ int main()
         }
     }
     while(sentSuccess);
-    peer.close_socket();
 
-    cout << "Socket closed." << endl;
+    peer.close_tracker_connection();
+
+    cout << "Connection to tracker closed." << endl;
 
     return 0;
 }

@@ -7,7 +7,7 @@ using namespace std;
 namespace peer_to_peer::tracker
 {
     ///
-    optional<TrackerServerConfig> try_parse_sconfig(string filename)
+    optional<TrackerServerConfig> try_parse_sconfig(const string& filename)
     {
         ifstream fileStream(filename);
         if(!fileStream.is_open())

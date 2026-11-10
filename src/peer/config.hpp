@@ -27,5 +27,5 @@ namespace peer_to_peer::peer
      * @param filename The name of the file to parse
      * @return The parsed client thread configuration values, if successful; otherwise, nullopt
      */
-    optional<PeerClientConfig> try_parse_peer_client_config(string filename);
+    optional<PeerClientConfig> try_parse_peer_client_config(const string& filename);
 }

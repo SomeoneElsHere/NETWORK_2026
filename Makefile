@@ -1,10 +1,10 @@
 include MF_global.mk
 
-TRACKER = $(DIR_BUILD)/tracker/tracker
-PEER = $(DIR_BUILD)/peer/peer
+TRACKER := $(DIR_BUILD)/tracker/tracker
+PEER := $(DIR_BUILD)/peer/peer
 
-PEER_FILES = $(patsubst $(wildcard $(DIR_COPY)/peer/*),$(DIR_COPY)/peer/%,$(DIR_BUILD)/peer/%)
-TRACKER_FILES = $(patsubst $(wildcard $(DIR_COPY)/tracker/*),$(DIR_COPY)/tracker/%,$(DIR_BUILD)/tracker/%)
+PEER_FILES := $(patsubst $(wildcard $(DIR_COPY)/peer/*),$(DIR_COPY)/peer/%,$(DIR_BUILD)/peer/%)
+TRACKER_FILES := $(patsubst $(wildcard $(DIR_COPY)/tracker/*),$(DIR_COPY)/tracker/%,$(DIR_BUILD)/tracker/%)
 
 # -- Build Targets --
 # -------------------
@@ -12,18 +12,30 @@ TRACKER_FILES = $(patsubst $(wildcard $(DIR_COPY)/tracker/*),$(DIR_COPY)/tracker
 build_all: build_tracker build_peer
 #	Nothing else to do here.
 
-.PHONY: build_tracker
-build_tracker: $(TRACKER) $(TRACKER_FILES)
-#	Nothing else to do here.
+$(TRACKER): build_tracker
 
-$(TRACKER) $(TRACKER_FILES):
-	$(MAKE) -f MF_tracker.mk build
+.PHONY: build_tracker
+build_tracker:
+	$(MAKE) -f MF_tracker.mk build DEBUG_FLAGS=""
+
+$(PEER): build_peer
 
 .PHONY: build_peer
-build_peer: $(PEER)
+build_peer:
+	$(MAKE) -f MF_peer.mk build DEBUG_FLAGS=""
+
+# -- Build Debug Targets --
+# -------------------------
+.PHONY: build_all_debug
+build_all_debug: build_tracker_debug build_peer_debug
 #	Nothing else to do here.
 
-$(PEER) $(PEER_FILES):
+.PHONY: build_tracker_debug
+build_tracker_debug:
+	$(MAKE) -f MF_tracker.mk build
+
+.PHONY: build_peer_debug
+build_peer_debug:
 	$(MAKE) -f MF_peer.mk build
 
 # -- Clean Targets --

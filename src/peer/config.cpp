@@ -1,4 +1,4 @@
-#include "../constants.hpp"
+#include "../util/networking.hpp"
 #include "config.hpp"
 
 #include <fstream>
@@ -8,7 +8,7 @@ using namespace std;
 namespace peer_to_peer::peer
 {
     ///
-    optional<PeerClientConfig> try_parse_peer_client_config(string filename)
+    optional<PeerClientConfig> try_parse_peer_client_config(const string& filename)
     {
         ifstream fileStream(filename);
         if(!fileStream.is_open())

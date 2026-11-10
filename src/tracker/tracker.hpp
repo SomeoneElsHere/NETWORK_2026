@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../constants.hpp"
+#include "../util/misc.hpp"
 #include "config.hpp"
+#include "worker.hpp"
 
 // C++ Standard Library
 #include <atomic>
@@ -31,9 +32,6 @@ namespace peer_to_peer
     
             /// The time between iterations of the peer thread management loop
             static constexpr duration PEER_MANAGE_DELAY = 10ms;
-    
-            /// The time between iterations of each peer's work loop
-            static constexpr duration PEER_WORK_DELAY = 1ms;
 
         private:
             /**
@@ -41,16 +39,19 @@ namespace peer_to_peer
              */
             struct peer_connection
             {
-                /// The file descriptor for this peer's socket
-                int peer_fd;
-                /// The string containing this peer's IP address
-                const string peer_address;
-                /// The last message received from this peer
-                optional<string> last_message = nullopt;
-                /// The worker thread used to communicate with this peer
-                thread* worker_thread = nullptr;
-                /// Whether this peer has disconnected and the worker thread has exited
-                bool completed = false;
+                ///// The file descriptor for this peer's socket
+                //int peer_fd;
+                ///// The string containing this peer's IP address
+                //const string peer_address;
+                ///// The last message received from this peer
+                //optional<string> last_message = nullopt;
+                ///// The worker thread used to communicate with this peer
+                //thread* worker_thread = nullptr;
+                ///// Whether this peer has disconnected and the worker thread has exited
+                //bool completed = false;
+
+                /// The worker assigned to this peer connection
+                Worker* worker;
                 /// The index this struct occupies in "connected_peers", for debugging purposes.
                 int DEBUG_peerarray_index;
             };
@@ -89,6 +90,29 @@ namespace peer_to_peer
             /// A server-wide kill switch used to terminate all existing peer connections and clean up resources
             atomic<bool>* killswitch;
 
+        public:
+            /**
+             * Creates a new tracker server with the default configuration
+             */
+            Tracker();
+
+            /**
+             * Creates a new tracker server with a custom configuration
+             * @param trackerConfig The configuration values for the tracker server
+             */
+            Tracker(TrackerServerConfig trackerConfig);
+
+            /**
+             * Clean up resources used by this tracker server
+             */
+            ~Tracker();
+
+        private:
+            /**
+             * Common code used in both constructors
+             */
+            void construct();
+
             /**
              * Listens for potential peers until the killswitch is activated
              * @param on_error The function to invoke if/when an error occurs
@@ -107,34 +131,13 @@ namespace peer_to_peer
              */
             void open_peer_connection(int peer_fd, sockaddr_in peer_ipv4);
 
-            /**
-             * Receives messages from a peer until its connection closes
-             * @param connection_data The connection data for the peer this worker thread is for
-             */
-            void peer_worker_task(peer_connection* connection_data);
-
-            /**
-             * Common code used in both constructors
-             */
-            void init();
+            ///**
+            // * Receives messages from a peer until its connection closes
+            // * @param connection_data The connection data for the peer this worker thread is for
+            // */
+            //void peer_worker_task(peer_connection* connection_data);
 
         public:
-            /**
-             * Creates a new tracker server with the default configuration
-             */
-            Tracker();
-
-            /**
-             * Creates a new tracker server with a custom configuration
-             * @param trackerConfig The configuration values for the tracker server
-             */
-            Tracker(TrackerServerConfig trackerConfig);
-
-            /**
-             * Clean up resources used by this tracker server
-             */
-            ~Tracker();
-
             /**
              * Determines whether this tracker server is currently listening for peers
              */
