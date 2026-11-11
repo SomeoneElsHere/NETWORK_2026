@@ -8,8 +8,7 @@
 
 using namespace std;
 
-namespace peer_to_peer::tracker
-{
+namespace peer_to_peer::tracker {
     /* Adapted from Jankatay's "files.hpp" */
 
     /// The file extension used for tracker files, per the project specification ("<filename>.track")

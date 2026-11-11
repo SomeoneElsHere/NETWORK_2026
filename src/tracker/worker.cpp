@@ -80,14 +80,15 @@ namespace peer_to_peer::tracker
     void Worker::signal_to_stop()
     {
         int peer_fd = this -> peer_fd.load();
-        if(peer_fd != -1)
-        {
-            if(shutdown(peer_fd, SHUT_RD) == 0)
+        if(peer_fd != -1) {
+            if(shutdown(peer_fd, SHUT_RD) == 0) {
                 this -> peer_fd.store(-1);
+            }
         }
 
         if(!this -> killswitch.load() && !this -> completed)
             this -> killswitch.store(true);
+        }
     }
 
     /// Joins and deletes the work thread, then resets the killswitch
