@@ -48,7 +48,7 @@ namespace peer_to_peer
         this -> send_lock = new std::mutex();
     }
 
-    ///
+    /// (constructor) Initializes with the given client configuration; no sockets or threads yet
     Peer::Peer(PeerClientConfig clientConfig)
     {
         this -> client_config = clientConfig;
@@ -64,7 +64,7 @@ namespace peer_to_peer
         this -> send_lock = new std::mutex();
     }
 
-    /// 
+    /// (destructor) Stops the server thread and closes the tracker connection, then frees the send lock
     Peer::~Peer()
     {
         this -> close_server();

@@ -20,7 +20,7 @@ using namespace peer_to_peer::tracker;
 
 namespace peer_to_peer
 {
-    ///
+    /// (default constructor) Uses port 10101 and shared/ as the shared directory
     Tracker::Tracker()
     {
         this -> tracker_config = TrackerServerConfig{
@@ -29,14 +29,14 @@ namespace peer_to_peer
         construct();
     }
 
-    ///
+    /// (constructor) Uses the given configuration values (from sconfig)
     Tracker::Tracker(TrackerServerConfig trackerConfig)
     {
         this -> tracker_config = trackerConfig;
         construct();
     }
 
-    ///
+    /// (destructor) Shuts down the server and frees the shared state
     Tracker::~Tracker()
     {
         this -> close_server();

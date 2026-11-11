@@ -10,6 +10,7 @@ using namespace peer_to_peer::peer;
 
 const string commandstr_exit = "exit";
 
+/// Startup: parse configs -> start server thread (if serverThreadConfig.cfg exists) -> connect to tracker; typed commands are wrapped in < > before sending
 int main()
 {
     optional<PeerClientConfig> clientConfig = try_parse_peer_client_config("./clientThreadConfig.cfg");
