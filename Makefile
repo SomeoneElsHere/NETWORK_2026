@@ -4,8 +4,35 @@ TRACKER := $(DIR_BUILD)/tracker/tracker
 PEER := $(DIR_BUILD)/peer/peer
 TESTING := $(DIR_BUILD)/testing/testing
 
-PEER_FILES := $(patsubst $(wildcard $(DIR_COPY)/peer/*),$(DIR_COPY)/peer/%,$(DIR_BUILD)/peer/%)
-TRACKER_FILES := $(patsubst $(wildcard $(DIR_COPY)/tracker/*),$(DIR_COPY)/tracker/%,$(DIR_BUILD)/tracker/%)
+PEER_FILES := $(patsubst $(DIR_COPY)/peer/%,$(DIR_BUILD)/peer/%,$(wildcard $(DIR_COPY)/peer/*))
+TRACKER_FILES := $(patsubst $(DIR_COPY)/tracker/%,$(DIR_BUILD)/tracker/%,$(wildcard $(DIR_COPY)/tracker/*))
+
+# -- Default build target --
+# --------------------------
+.PHONY: default
+default: $(TRACKER) $(PEER)
+	cp $(TRACKER) -t .
+	cp $(wildcard $(DIR_COPY)/tracker/*) -t .
+
+	mkdir -p peer1
+	mkdir -p peer2
+	mkdir -p peer3
+
+	cp $(PEER) -t ./peer1
+	cp $(wildcard $(DIR_COPY)/peer/*) -t ./peer1
+	cp ./peer1/* -t ./peer2
+	cp ./peer1/* -t ./peer3
+
+# -- Default clean target --
+# --------------------------
+.PHONY: clean
+clean:
+	rm ./tracker
+	rm $(patsubst $(DIR_COPY)/tracker/%,./%,$(wildcard $(DIR_COPY)/tracker/*))
+
+	rm -rf ./peer1
+	rm -rf ./peer2
+	rm -rf ./peer3
 
 # -- Build Targets --
 # -------------------

@@ -491,3 +491,11 @@ flycheck_*.el
 ##       this project does not have to worry about that. That file is normally fine to include.
 *.ccls-cache
 *.ccls
+
+# make
+/peer1/*
+/peer2/*
+/peer3/*
+
+/tracker
+/sconfig
