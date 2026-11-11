@@ -4,22 +4,18 @@
 
 using namespace std;
 
-namespace peer_to_peer::tracker
-{
+namespace peer_to_peer::tracker {
     ///
-    optional<TrackerServerConfig> try_parse_sconfig(const string& filename)
-    {
+    optional<TrackerServerConfig> try_parse_sconfig(const string& filename) {
         ifstream fileStream(filename);
-        if(!fileStream.is_open())
-        {
+        if(!fileStream.is_open()) {
             // Failed to open the specified file for reading
             return nullopt;
         }
 
         int16_t intPort;
         string strDirectory;
-        try
-        {
+        try {
             string strPort;
 
             // Port Number
@@ -28,18 +24,32 @@ namespace peer_to_peer::tracker
 
             // Shared Directory
             getline(fileStream, strDirectory);
-        }
-        catch (...) 
-        {
+        } catch (...) {
             // One of the options could not be parsed correctly
             fileStream.close();
             return nullopt;
         }
 
+        // Optional third line: dead peer timeout (seconds before a silent peer's
+        // entries are removed from tracker files). Defaults to 900s (15 minutes,
+        // matching the specification's default peer refresh interval) when absent
+        // or unparseable.
+        int dead_peer_timeout = 900;
+        try {
+            string strTimeout;
+            if(getline(fileStream, strTimeout) && !strTimeout.empty()) {
+                int value = stoi(strTimeout);
+                if(value > 0)
+                    dead_peer_timeout = value;
+            }
+        }
+        catch (...) { /* keep the default */ }
+
         fileStream.close();
-        return TrackerServerConfig{
+        return TrackerServerConfig {
             intPort,
-            strDirectory
+            strDirectory,
+            dead_peer_timeout
         };
     }
 }
