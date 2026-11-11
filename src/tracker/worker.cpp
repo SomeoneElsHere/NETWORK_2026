@@ -22,10 +22,9 @@
 
 using namespace std;
 
-namespace peer_to_peer::tracker
-{
-    static string ip_addr_str(const sockaddr_in& peer_ipv4)
-    {
+namespace peer_to_peer::tracker {
+
+    static string ip_addr_str(const sockaddr_in& peer_ipv4) {
         char ipaddr[INET_ADDRSTRLEN];
         inet_ntop(
             AF_INET,
@@ -53,10 +52,9 @@ namespace peer_to_peer::tracker
     }
 
     ///
-    Worker::~Worker()
-    {
-        if(!this -> completed)
-        {
+    Worker::~Worker() {
+        
+        if(!this -> completed) {
             this -> signal_to_stop();
         }
         this -> wait_for_completion();
@@ -68,22 +66,21 @@ namespace peer_to_peer::tracker
     bool Worker::is_complete() { return this -> completed; }
 
     ///
-    void Worker::signal_to_stop()
-    {
+    void Worker::signal_to_stop() {
         int peer_fd = this -> peer_fd.load();
-        if(peer_fd != -1)
-        {
-            if(shutdown(peer_fd, SHUT_RD) == 0)
+        if(peer_fd != -1) {
+            if(shutdown(peer_fd, SHUT_RD) == 0) {
                 this -> peer_fd.store(-1);
+            }
         }
         
-        if(!this -> killswitch.load() && !this -> completed)
+        if(!this -> killswitch.load() && !this -> completed) {
             this -> killswitch.store(true);
+        }
     }
 
     ///
-    void Worker::wait_for_completion()
-    {
+    void Worker::wait_for_completion() {
         wait_and_dispose_thread(this -> work_thread);
         //if(this -> work_thread != nullptr)
         //{
@@ -95,7 +92,7 @@ namespace peer_to_peer::tracker
         this -> killswitch.store(false);
     }
 
-    constexpr int MAX_MSG_SIZE = 255;
+    constexpr int MAX_MSG_SIZE = 4096;
 
     ///**
     // * Attempts to parse a command string from a raw char buffer
@@ -142,17 +139,17 @@ namespace peer_to_peer::tracker
     //}
 
     ///
-    void Worker::work()
-    {
+    void Worker::work() {
+        
         char buf[MAX_MSG_SIZE];
-        while(!(this -> killswitch.load()))
-        {
+        string pending; // received bytes not yet terminated by a newline
+        
+        while(!(this -> killswitch.load())) {
             this_thread::sleep_for(WORK_DELAY);
 
             fill_n(buf, MAX_MSG_SIZE, '\0');
             int recvBytes = recv(this -> peer_fd, buf, sizeof(buf)-1, 0);
-            if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
-            {
+            if (recvBytes <= 0) { // if failure to recieve stop. Store data at buf
                 break;
             }
 
