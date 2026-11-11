@@ -1,5 +1,7 @@
 #include "strings.hpp"
 
+#include <cinttypes>
+
 using namespace std;
 
 constexpr int iso8601_buffer_length = 20; // remind me to update it in the year 9999
@@ -113,5 +115,17 @@ namespace peer_to_peer
       ret += to_string(minutes) + " minutes, and ";
       ret += to_string(diff) + " seconds.";
       return ret;
+    }
+
+    ///
+    bool valid_uint(string& alleged_number) {
+      // sanitize 
+      if(alleged_number.empty()) return false;
+
+      // convert and see
+      errno = 0;
+      char* endptr = NULL;
+      strtoumax(alleged_number.c_str(), &endptr, 10); 
+      return ((*endptr) == '\0') && (endptr != alleged_number.c_str()) && (!errno);
     }
 }

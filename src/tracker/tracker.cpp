@@ -1,5 +1,4 @@
-#include "../util/networking.hpp"
-#include "files.hpp"
+#include "util/networking.hpp"
 #include "tracker.hpp"
 
 // C++ Standard Library
@@ -214,9 +213,9 @@ namespace peer_to_peer
         //std::string Ipaddrstring(ipaddr);
         int peer_index = next_peer_index -> load();
         Worker* worker = new Worker(
+            this -> tracker_config.shared_directory,
             peer_fd,
             peer_ipv4,
-            produce_file_list(),
             true
         );
         peer_connection* new_connection = new peer_connection{

@@ -45,4 +45,11 @@ namespace peer_to_peer
      * Returns an empty string if an error occurs or NULL info is encountered
      */
     string epoch_to_uptime(time_t epoch);
+
+    /**
+     * Checks if the specified string contains a valid unsigned integer
+     * @param alleged_number The string to check
+     * @return true if the string contains a valid unsigned integer; otherwise, false
+     */
+    bool valid_uint(string& alleged_number);
 }

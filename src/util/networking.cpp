@@ -1,6 +1,8 @@
 #include "networking.hpp"
+#include "strings.hpp"
 
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 using namespace std;
 
@@ -55,5 +57,18 @@ namespace peer_to_peer
       }
     
       return addrList; // success
+    }
+
+    ///
+    bool valid_address(string ip, string port) {
+        // sanitize and init
+        if(!valid_uint(port)) return false; // fastest one
+        struct sockaddr_in bin_ipv4;
+        struct sockaddr_in6 bin_ipv6;
+          
+        // convert and see
+        if(!inet_pton(AF_INET, ip.c_str(), &bin_ipv4)) return false;
+        if(!inet_pton(AF_INET, ip.c_str(), &bin_ipv6)) return false;
+        return true;
     }
 }

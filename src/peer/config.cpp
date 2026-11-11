@@ -1,4 +1,4 @@
-#include "../util/networking.hpp"
+#include "util/networking.hpp"
 #include "config.hpp"
 
 #include <fstream>

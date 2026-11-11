@@ -51,7 +51,7 @@ build: $(EXECUTABLE)
 
 # Build executable
 $(EXECUTABLE): $(REQ_OBJS) | $(REQ_COPY) $(DIR_BUILD_PROGRAM)
-	$(LINK) $@ $^
+	$(LINK) $@ $^ $(LIB_FLAGS) $(LIB_DEBUG_FLAGS)
 
 # Compile main.cpp file without linking; main does not require a .hpp file because it is only supposed
 # to contain a main() method and any utility definitions/declarations that are used only by it.

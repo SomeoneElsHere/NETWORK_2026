@@ -1,13 +1,23 @@
 #include "misc.hpp"
 
+#ifdef DEBUG_PRINT
 #include <iostream>
+#endif
 
 using namespace std;
 
 namespace peer_to_peer
 {
     ///
-    void _debug_print(string &&text)
+    void _debug_print(const string& text)
+    {
+        #ifdef DEBUG_PRINT
+        cout << "[DEBUG] " << text << endl;
+        #endif
+    }
+
+    ///
+    void _debug_print(string&& text)
     {
         #ifdef DEBUG_PRINT
         cout << "[DEBUG] " << text << endl;

@@ -1,5 +1,5 @@
-#include "../util/misc.hpp"
-#include "../util/networking.hpp"
+#include "util/misc.hpp"
+#include "util/networking.hpp"
 #include "peer.hpp"
 
 #include <unistd.h>

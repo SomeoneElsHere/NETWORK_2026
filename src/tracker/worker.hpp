@@ -1,6 +1,6 @@
 #pragma once
 
-#include "files.hpp"
+#include "util/tracker_files.hpp"
 
 // C++ Standard Library
 #include <atomic>
@@ -46,6 +46,9 @@ namespace peer_to_peer::tracker
             static constexpr duration WORK_DELAY = 1ms;
             
         private:
+            /// A reference to the directory in which tracker files are stored
+            const string shared_directory;
+
             /// The file descriptor corresponding to the socket this worker listens for messages from a peer on
             atomic<int> peer_fd;
 
@@ -60,9 +63,6 @@ namespace peer_to_peer::tracker
 
             /// Whether this worker should terminate ASAP
             atomic<bool> killswitch;
-
-            /// A list of the tracker files the tracker server had access to when initializing this worker
-            list<TrackerFile> tracker_files;
 
         public:
             /// The IP address of the peer this worker is assigned to
@@ -89,12 +89,12 @@ namespace peer_to_peer::tracker
         public:
             /**
              * Creates a new worker
+             * @param shared_directory The directory to store tracker files in
              * @param peer_fd The file descriptor of the socket this worker will listen on
              * @param peer_ipv4 The assigned peer's IP address
-             * @param tracker_files A list of tracker files
              * @param close_fd_on_completion Whether to close the socket file descriptor when this worker completes its work thread
              */
-            Worker(int peer_fd, const sockaddr_in& peer_ipv4, list<TrackerFile> tracker_files, bool close_fd_on_completion);
+            Worker(const string shared_directory, int peer_fd, const sockaddr_in& peer_ipv4, bool close_fd_on_completion);
 
             /**
              * Cleans up resources utilized by this worker

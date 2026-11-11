@@ -1,8 +1,7 @@
-#include "../util/commands.hpp"
-#include "../util/misc.hpp"
-#include "../util/networking.hpp"
-#include "../util/strings.hpp"
-#include "files.hpp"
+#include "util/commands.hpp"
+#include "util/misc.hpp"
+#include "util/networking.hpp"
+#include "util/strings.hpp"
 #include "worker.hpp"
 
 // C++ Standard Library
@@ -38,7 +37,8 @@ namespace peer_to_peer::tracker
     }
 
     ///
-    Worker::Worker(int peer_fd, const sockaddr_in& peer_ipv4, list<TrackerFile> tracker_files, bool close_fd_on_completion) :
+    Worker::Worker(const string shared_directory, int peer_fd, const sockaddr_in& peer_ipv4, bool close_fd_on_completion) :
+        shared_directory(shared_directory),
         peer_fd(peer_fd),
         peer_address(ip_addr_str(peer_ipv4)),
         close_fd_on_completion(close_fd_on_completion)
@@ -48,8 +48,6 @@ namespace peer_to_peer::tracker
         this -> lock = new mutex();
         this -> completed = false;
         this -> killswitch = false;
-
-        this -> tracker_files = tracker_files;
     }
 
     ///
@@ -335,6 +333,6 @@ namespace peer_to_peer::tracker
 
         
         send_string(this -> peer_fd, "CREATE TRACKER FOR REQUESTED");
-        _debug_print(std::move(cmdstr));
+        _debug_print(cmdstr);
     }
 }

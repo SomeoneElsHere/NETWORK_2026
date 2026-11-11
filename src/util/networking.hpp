@@ -49,4 +49,12 @@ namespace peer_to_peer
      * @return An addrinfo pointer containing a list of configurations usable with the specified port; otherwise, nullptr
      */
     addrinfo* make_connection_list(int16_t port);
+
+    /**
+     * Check if the specified IP address and port strings follow their respective formats
+     * @param ip The string containing the IP address
+     * @param port The string containing the port
+     * @return true if both the IP address and port strings are correctly formatted; otherwise, false
+     */
+    bool valid_address(string ip, string port);
 }

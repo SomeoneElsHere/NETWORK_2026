@@ -19,7 +19,14 @@ namespace peer_to_peer
     /**
      * If the DEBUG_PRINT macro is set, prints a string to the standard output.
      * Otherwise, does nothing.
-     * @param text The string to be printed
+     * @param text A reference to the string to be printed
+     */
+    void _debug_print(const string& text);
+    
+    /**
+     * If the DEBUG_PRINT macro is set, prints a string to the standard output.
+     * Otherwise, does nothing.
+     * @param text The rvalue string to be printed
      */
     void _debug_print(string&& text);
 
