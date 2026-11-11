@@ -364,18 +364,18 @@ namespace peer_to_peer::tracker
     ///
     void Worker::handle_create_tracker(const vector<string>& ct_args)
     {
-        string cmdstr = "createtracker: ";
-        bool sep = false;
-        for(string ct_arg : ct_args)
-        {
-            if(sep)
-                cmdstr += ", ";
-
-            cmdstr += "'" + ct_arg + "'";
-            sep = true;
-        }
-
-        _debug_print(cmdstr);
+        //string cmdstr = "createtracker: ";
+        //bool sep = false;
+        //for(string ct_arg : ct_args)
+        //{
+        //    if(sep)
+        //        cmdstr += ", ";
+//
+        //    cmdstr += "'" + ct_arg + "'";
+        //    sep = true;
+        //}
+//
+        //_debug_print(cmdstr);
 
         vector<string> args = ct_args;
         /* Adapted from Jankatay's proc_create function in worker.hpp */

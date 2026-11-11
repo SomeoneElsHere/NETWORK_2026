@@ -1,3 +1,4 @@
+#include "peer/peer.hpp"
 #include "util/md5.hpp"
 #include "util/networking.hpp"
 #include "util/strings.hpp"
@@ -49,6 +50,37 @@ namespace peer_to_peer
     }
 
     /* Alternate version of TrackerFile class */
+
+    ///
+    bool try_parse_peer_from_args(vector<string> args, PeerInfo* out_peer)
+    {
+        // Peer IP Address & Port
+        if(!valid_address(args[0], args[1]))
+            return false;
+
+        // Start Byte
+        if(!valid_uint(args[2]))
+            return false;
+
+        // End Byte
+        if(!valid_uint(args[3]))
+            return false;
+
+        if(out_peer != nullptr)
+        {
+            *out_peer = PeerInfo{
+                args[0],
+                0,
+                stoul(args[2]),
+                stoul(args[3]),
+                time(NULL)
+            };
+
+            out_peer -> port = stoi(args[1]);
+        }
+
+        return true;
+    }
 
     ///
     const string TrackerFile::FILE_EXTENSION = ".track";
@@ -457,7 +489,7 @@ namespace peer_to_peer
     }
 
     ///
-    bool TrackerFile::try_remove_peer(string peer_addr, int16_t peer_port)
+    bool TrackerFile::try_remove_peer(string peer_addr, uint16_t peer_port)
     {
         // Don't remove it if it doesn't exists
         auto peer_it = this -> peers.begin();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -12,7 +13,7 @@ namespace peer_to_peer::tracker
      */
     typedef struct {
         /// The port this tracker server will listen on
-        int16_t port;
+        uint16_t port;
 
         /// The name of the shared folder
         string shared_directory;

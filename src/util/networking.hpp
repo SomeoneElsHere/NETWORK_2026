@@ -18,7 +18,7 @@ namespace peer_to_peer
     static constexpr int16_t MAX_CHUNK_SIZE = 1024;
     
     /// The default port used by the tracker server for listening
-    static constexpr int16_t TRACKER_PORT = 10101;
+    static constexpr uint16_t TRACKER_PORT = 10101;
 
     /**
      * Attempts to receive a string from a networked socket
@@ -58,7 +58,7 @@ namespace peer_to_peer
      * @param port The port to create a list of connections for
      * @return An addrinfo pointer containing a list of configurations usable with the specified port; otherwise, nullptr
      */
-    addrinfo* make_connection_list(int16_t port);
+    addrinfo* make_connection_list(uint16_t port);
 
     /**
      * Check if the specified IP address and port strings follow their respective formats

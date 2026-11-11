@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <istream>
+#include <list>
 #include <ostream>
 #include <optional>
 #include <string>
 #include <vector>
-#include <list>
 
 using namespace std;
 
@@ -20,7 +21,7 @@ namespace peer_to_peer
         string addr;
 
         /// The port this peer is connecting through
-        int16_t port; // size_t just in case
+        uint16_t port; // size_t just in case
         
         /// This peer's start byte of the actual file
         size_t start_byte;
@@ -39,6 +40,14 @@ namespace peer_to_peer
      * @return A list containing all found tracker files in the directory; if an error occurs, returns an empty list
      */
     list<string> list_trackers(const string& target_folder);
+
+    /**
+     * Attempts to parse a set of string arguments as a peer info entry
+     * @param args The vector containing the string-based arguments to be parsed
+     * @param out_peer The memory location to store the created PeerInfo value; pass nullptr to skip creation
+     * @return true if a PeerInfo value was correctly parsed from the specified string arguments; otherwise, false
+     */
+    bool try_parse_peer_from_args(vector<string> args, PeerInfo* out_peer);
 
     /* Alternate version of TrackerFile class */
 
@@ -107,7 +116,7 @@ namespace peer_to_peer
              * Attempts to parse a set of string arguments as a tracker file
              * @param args The vector containing the string-based arguments to be parsed
              * @param out_trackerfile The memory location to store the created TrackerFile object; pass nullptr to skip creation
-             * @return true if a tracker file was correctly parsed from the specified input stream; otherwise, false
+             * @return true if a tracker file was correctly parsed from the specified string arguments; otherwise, false
              */
             static bool try_parse_from_args(vector<string> args, TrackerFile* out_trackerfile);
 
@@ -157,6 +166,21 @@ namespace peer_to_peer
             vector<PeerInfo> get_peers();
 
             /**
+             * Attempts to retrieve a peer from this tracker file
+             * @param peer_ipv4 The IPv4 address of the peer
+             * @param peer_port The port of the peer
+             * @return The peer data for the specified ip address and port, if available; otherwise, nullopt
+             */
+            optional<PeerInfo&> try_get_peer(string peer_ipv4, uint16_t peer_port);
+
+            /**
+             * Attempts to update an existing peer in this tracker file
+             * @param peer The peer information to update (uses IP address and port as a key)
+             * @return true if the specified peer info was present in this tracker file; otherwise, false
+             */
+            bool try_update_peer(PeerInfo peer);
+
+            /**
              * Retrieves a string that can be used for display purposes
              * @return A representational string that may be used for display purposes
              */
@@ -175,6 +199,6 @@ namespace peer_to_peer
              * @param peer_port The port of the peer to be removed
              * @return true if the peer was found and successfully removed from this tracker file; otherwise, false
              */
-            bool try_remove_peer(string peer_addr, int16_t peer_port);
+            bool try_remove_peer(string peer_addr, uint16_t peer_port);
     };
 }

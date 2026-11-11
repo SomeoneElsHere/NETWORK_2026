@@ -52,7 +52,7 @@ namespace peer_to_peer
     }
 
     ///
-    addrinfo* make_connection_list(int16_t port) {
+    addrinfo* make_connection_list(uint16_t port) {
         // init options
         struct addrinfo addropts = {};
         addropts.ai_family = AF_INET;       // ipv4

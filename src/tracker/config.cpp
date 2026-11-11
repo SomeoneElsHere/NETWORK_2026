@@ -1,5 +1,6 @@
 #include "config.hpp"
 
+#include <cstdint>
 #include <fstream>
 
 using namespace std;
@@ -16,7 +17,7 @@ namespace peer_to_peer::tracker
             return nullopt;
         }
 
-        int16_t intPort;
+        uint16_t intPort;
         string strDirectory;
         try
         {
