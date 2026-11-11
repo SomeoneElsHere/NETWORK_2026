@@ -196,8 +196,6 @@ namespace peer_to_peer
     /// Takes the lowest free slot, spawns the peer's Worker, and records the IP->slot mapping
     void Tracker::open_peer_connection(int peer_fd, sockaddr_in peer_ipv4)
     {
-
-        // std::string Ipaddrstring(ipaddr);
         int peer_index = next_peer_index -> load();
         Worker* worker = new Worker(
             peer_fd,
@@ -212,11 +210,6 @@ namespace peer_to_peer
         {
             ip_index_mappings[worker -> peer_address] = peer_fd; // if not, create new handle for IP
         }
-
-        //// i = 0; //debug for 1 peer
-        // peer_connection* new_connection = new peer_connection{ peer_fd, Ipaddrstring };
-        // new_connection -> worker_thread = new thread(&Tracker::peer_worker_task, this, new_connection);
-        // new_connection -> worker_thread -> detach(); //let it do its thang
 
         this -> connected_peers[peer_index] = new_connection;
         new_connection -> DEBUG_peerarray_index = peer_index;
