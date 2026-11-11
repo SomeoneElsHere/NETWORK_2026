@@ -8,7 +8,8 @@ constexpr int seconds_per_minute = 60;
 constexpr int seconds_per_hour = seconds_per_minute * 60;
 constexpr int seconds_per_day = seconds_per_hour * 24;
 
-namespace peer_to_peer {
+namespace peer_to_peer
+{
     /* Adapted from Jankatay's "util.hpp" */
 
     /// Splits into arguments honoring quotes (spaces allowed inside quotes; backslash escapes quotes)
@@ -17,9 +18,8 @@ namespace peer_to_peer {
         arguments = vector<string>();
 
         // sanitize and init
-        if(str.empty()) {
+        if(str.empty())
             return true;
-        }
 
         bool dquotes = false, quotes = false, escape = false;
         string current = "";
@@ -28,9 +28,9 @@ namespace peer_to_peer {
         for(unsigned char c : str)
         {
             // special characters
-            if((c == '"') && (!quotes) && (!escape)) { // handle double quotations
+            if((c == '"') && (!quotes) && (!escape)) // handle double quotations
                 dquotes = !dquotes;
-            } else if((c == '\'') && (!dquotes) && (!escape)) { // handle single quotations
+            else if((c == '\'') && (!dquotes) && (!escape)) // handle single quotations
                 quotes = !quotes;
             else if(c == '\\' && !escape)
             { // the escape/backslash
@@ -58,10 +58,8 @@ namespace peer_to_peer {
             fprintf(stderr, "WARNING - Unclosed quotations or stray backslash -> %s:%d\n", __FILE__, __LINE__);
             return false;
         }
-        
-        if(!current.empty()) {
+        if(!current.empty())
             arguments.push_back(current);
-        }
 
         return true;
     }

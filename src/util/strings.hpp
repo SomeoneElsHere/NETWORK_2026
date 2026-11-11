@@ -6,7 +6,8 @@
 
 using namespace std;
 
-namespace peer_to_peer {
+namespace peer_to_peer
+{
     /* Adapted from Jankatay's "util.hpp" */
 
     /**

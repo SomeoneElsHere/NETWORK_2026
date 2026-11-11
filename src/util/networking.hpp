@@ -9,7 +9,8 @@
 
 using namespace std;
 
-namespace peer_to_peer {
+namespace peer_to_peer
+{
     /// The maximum number of bytes in a message to be transferred from machine to machine
     static constexpr int16_t MAX_MESSAGE_BUFFER_SIZE = 255;
 

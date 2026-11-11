@@ -10,14 +10,16 @@ namespace peer_to_peer::tracker
     optional<TrackerServerConfig> try_parse_sconfig(const string& filename)
     {
         ifstream fileStream(filename);
-        if(!fileStream.is_open()) {
+        if(!fileStream.is_open())
+        {
             // Failed to open the specified file for reading
             return nullopt;
         }
 
         int16_t intPort;
         string strDirectory;
-        try {
+        try
+        {
             string strPort;
 
             // Port Number
@@ -54,7 +56,7 @@ namespace peer_to_peer::tracker
         }
 
         fileStream.close();
-        return TrackerServerConfig {
+        return TrackerServerConfig{
             intPort,
             strDirectory,
             dead_peer_timeout};

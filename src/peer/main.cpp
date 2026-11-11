@@ -10,9 +10,11 @@ using namespace peer_to_peer::peer;
 
 const string commandstr_exit = "exit";
 
-int main() {
+int main()
+{
     optional<PeerClientConfig> clientConfig = try_parse_peer_client_config("./clientThreadConfig.cfg");
-    if(!clientConfig.has_value()) {
+    if(!clientConfig.has_value())
+    {
         cout << "The specified clientThreadConfig file could not be read. Does it exist, and is it formatted properly?" << endl;
         return 1;
     }
@@ -38,13 +40,15 @@ int main() {
         cout << "No serverThreadConfig.cfg found; running without sharing files to other peers." << endl;
 
     cout << "Attempting to open the socket..." << endl;
-    if(!peer.try_init_socket(&error_code)) {
+    if(!peer.try_init_socket(&error_code))
+    {
         cout << "Could not open a socket for connection. Error code: " << error_code << endl;
         return 2;
     }
 
     cout << "Attempting to establish a connection..." << endl;
-    if(!peer.try_connect(&error_code)) {
+    if(!peer.try_connect(&error_code))
+    {
         cout << "Connection could not be successfully established. Error code: " << error_code << endl;
         return 3;
     }
