@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.hpp"
 #include "files.hpp"
 
 // C++ Standard Library
@@ -61,8 +62,8 @@ namespace peer_to_peer::tracker
             /// Whether this worker should terminate ASAP
             atomic<bool> killswitch;
 
-            /// A list of the tracker files the tracker server had access to when initializing this worker
-            list<TrackerFile> tracker_files;
+            /// The configuration of the tracker server this worker belongs to (shared directory, timeouts)
+            TrackerServerConfig tracker_config;
 
         public:
             /// The IP address of the peer this worker is assigned to
@@ -81,7 +82,7 @@ namespace peer_to_peer::tracker
             // * Creates a new worker
             // * @param peer_fd The file descriptor of the socket this worker will listen on
             // * @param peer_address The string representation of the peer's IP address
-            // * @param tracker_files A list of tracker files
+            // * @param tracker_config The configuration of the tracker server (shared directory, timeouts)
             // * @param close_fd_on_completion Whether to close the socket file descriptor when this worker completes its work thread
             // */
             //Worker(int peer_fd, string peer_address, list<TrackerFile> tracker_files, bool close_fd_on_completion);
@@ -94,7 +95,7 @@ namespace peer_to_peer::tracker
              * @param tracker_files A list of tracker files
              * @param close_fd_on_completion Whether to close the socket file descriptor when this worker completes its work thread
              */
-            Worker(int peer_fd, const sockaddr_in& peer_ipv4, list<TrackerFile> tracker_files, bool close_fd_on_completion);
+            Worker(int peer_fd, const sockaddr_in& peer_ipv4, const TrackerServerConfig& tracker_config, bool close_fd_on_completion);
 
             /**
              * Cleans up resources utilized by this worker
@@ -150,6 +151,12 @@ namespace peer_to_peer::tracker
              * @param ct_args The peer-provided arguments for the createtracker command
              */
             void handle_create_tracker(const vector<string>& ct_args);
+
+            /**
+             * Attempts to update an existing tracker file using a set of parameters passed by this worker's assigned peer
+             * @param ut_args The peer-provided arguments for the updatetracker command
+             */
+            void handle_update_tracker(const vector<string>& ut_args);
 
             /**
              * Attempts to retrieve tracker file for the specified filename and send it to this worker's assigned peer
