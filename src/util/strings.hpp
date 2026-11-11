@@ -9,7 +9,7 @@ using namespace std;
 namespace peer_to_peer
 {
     /* Adapted from Jankatay's "util.hpp" */
-    
+
     /**
      * Splits a string into a vector containing substrings separated by quotation marks, then spaces.
      * If double quotes used, string will accept single quotes and vice versa
@@ -22,6 +22,14 @@ namespace peer_to_peer
      * @return false if errors like unclosed quotations or unknown characters were encountered; otherwise, true
      */
     bool str_to_args(const string& str, vector<string>& arguments);
+
+    /**
+     * Attempts to parse a non-negative integer from a string
+     * @param str The string to parse; the entire string must be numeric
+     * @param out The memory location to store the parsed value
+     * @return true if the string was a valid non-negative integer; otherwise, false
+     */
+    bool str_to_u64(const string& str, unsigned long long& out);
 
     /**
      * Splits a single string into a vector containing multiple substrings
@@ -45,4 +53,4 @@ namespace peer_to_peer
      * Returns an empty string if an error occurs or NULL info is encountered
      */
     string epoch_to_uptime(time_t epoch);
-}
+} // namespace peer_to_peer

@@ -490,4 +490,4 @@ flycheck_*.el
 ## note: reference project relies on build-EAR, which is why it ignores compile_commands.json
 ##       this project does not have to worry about that. That file is normally fine to include.
 *.ccls-cache
-*.ccls
+*.cclsbuild/

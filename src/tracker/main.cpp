@@ -35,7 +35,7 @@ int main()
         cout << "Could not open a socket for listening. " << endl;
         return 2;
     }
-    
+
     int error_code = 0;
     if(!tracker.try_listen_for_peers(&print_error_code))
     {
@@ -43,14 +43,14 @@ int main()
         return 3;
     }
 
-    do {
+    do
+    {
         string command;
         getline(cin, command);
 
         if(command == commandstr_exit)
             break;
-    }
-    while(tracker.is_listening());
+    } while(tracker.is_listening());
 
     tracker.close_server();
     return 0;

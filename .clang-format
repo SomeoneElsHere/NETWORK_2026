@@ -1,0 +1,15 @@
+# Formatting for the project (clang-format >= 17)
+# Run:  clang-format -i src/**/*.cpp src/**/*.hpp
+# Note: the codebase's `this -> member` spacing is not supported by
+# clang-format; run the following afterwards to restore it (tight
+# arrows only, so string literals are untouched):
+#   sed -i 's/\([A-Za-z0-9_)]\)->\([A-Za-z_*(]\)/\1 -> \2/g' <files>
+BasedOnStyle: LLVM
+IndentWidth: 4
+NamespaceIndentation: All
+BreakBeforeBraces: Allman
+ColumnLimit: 0          # never reflow code or comment lines
+SpaceBeforeParens: false  # match the codebase's existing 'if(cond)' style
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never

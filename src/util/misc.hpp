@@ -37,4 +37,4 @@ namespace peer_to_peer
      * @param t The pointer at which the thread to join and then delete is stored.
      */
     void wait_and_dispose_thread(thread*& t);
-}
+} // namespace peer_to_peer

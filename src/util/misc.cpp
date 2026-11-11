@@ -6,29 +6,29 @@ using namespace std;
 
 namespace peer_to_peer
 {
-    ///
-    void _debug_print(string &&text)
+    /// Prints the message only in debug builds (compiled with -D DEBUG_PRINT)
+    void _debug_print(string&& text)
     {
-        #ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT
         cout << "[DEBUG] " << text << endl;
-        #endif
+#endif
     }
 
-    ///
+    /// On a triggered fail condition, records errno into error_code (if given) and reports failure
     bool check_for_error(bool fail_condition, int* error_code)
     {
         if(fail_condition)
         {
             if(error_code != nullptr)
                 *error_code = errno;
-        
+
             return false;
         }
-      
+
         return true;
     }
 
-    ///
+    /// Joins a heap thread if joinable, deletes it, and nulls the pointer
     void wait_and_dispose_thread(thread*& t)
     {
         if(t == nullptr)
@@ -43,4 +43,4 @@ namespace peer_to_peer
         delete t;
         t = nullptr;
     }
-}
+} // namespace peer_to_peer

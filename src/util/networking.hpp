@@ -4,8 +4,8 @@
 #include <string>
 
 // Unix Specification
-#include <sys/types.h>
 #include <netdb.h>
+#include <sys/types.h>
 
 using namespace std;
 
@@ -16,12 +16,12 @@ namespace peer_to_peer
 
     /// The maximum number of bytes in a file segment to be transferred from machine to machine
     static constexpr int16_t MAX_CHUNK_SIZE = 1024;
-    
+
     /// The default port used by the tracker server for listening
     static constexpr int16_t TRACKER_PORT = 10101;
 
     /* Adapted from Jankatay's "util.hpp" */
-    
+
     /**
      * Converts a C++ string into a C-style string and sends it through a socket
      * @param sockfd The file descriptor of the socket to send the string through
@@ -30,10 +30,11 @@ namespace peer_to_peer
      */
     ssize_t send_string(int sockfd, const string& msg);
 
-    struct AddrinfoExt {
-      struct addrinfo* addr = {};
-      int sockfd = -1;
-      pthread_t tid = {}; // thread id
+    struct AddrinfoExt
+    {
+        struct addrinfo* addr = {};
+        int sockfd = -1;
+        pthread_t tid = {}; // thread id
     };
 
     /**
@@ -49,4 +50,4 @@ namespace peer_to_peer
      * @return An addrinfo pointer containing a list of configurations usable with the specified port; otherwise, nullptr
      */
     addrinfo* make_connection_list(int16_t port);
-}
+} // namespace peer_to_peer

@@ -23,142 +23,142 @@ namespace peer_to_peer
 {
     class Tracker
     {
-        public:
-            /// The maximum number of peers that can be connected to a tracker server concurrently
-            static constexpr int16_t MAX_PEERS = 256;
-    
-            /// The time between iterations of the peer listening loop
-            static constexpr duration PEER_LISTEN_DELAY = 10ms;
-    
-            /// The time between iterations of the peer thread management loop
-            static constexpr duration PEER_MANAGE_DELAY = 10ms;
+      public:
+        /// The maximum number of peers that can be connected to a tracker server concurrently
+        static constexpr int16_t MAX_PEERS = 256;
 
-        private:
-            /**
-             * Information representing a peer connected to a tracker server
-             */
-            struct peer_connection
-            {
-                ///// The file descriptor for this peer's socket
-                //int peer_fd;
-                ///// The string containing this peer's IP address
-                //const string peer_address;
-                ///// The last message received from this peer
-                //optional<string> last_message = nullopt;
-                ///// The worker thread used to communicate with this peer
-                //thread* worker_thread = nullptr;
-                ///// Whether this peer has disconnected and the worker thread has exited
-                //bool completed = false;
+        /// The time between iterations of the peer listening loop
+        static constexpr duration PEER_LISTEN_DELAY = 10ms;
 
-                /// The worker assigned to this peer connection
-                Worker* worker;
-                /// The index this struct occupies in "connected_peers", for debugging purposes.
-                int DEBUG_peerarray_index;
-            };
+        /// The time between iterations of the peer thread management loop
+        static constexpr duration PEER_MANAGE_DELAY = 10ms;
 
-            // Tracker server properties
+      private:
+        /**
+         * Information representing a peer connected to a tracker server
+         */
+        struct peer_connection
+        {
+            ///// The file descriptor for this peer's socket
+            // int peer_fd;
+            ///// The string containing this peer's IP address
+            // const string peer_address;
+            ///// The last message received from this peer
+            // optional<string> last_message = nullopt;
+            ///// The worker thread used to communicate with this peer
+            // thread* worker_thread = nullptr;
+            ///// Whether this peer has disconnected and the worker thread has exited
+            // bool completed = false;
 
-            /// The configuration values for this tracker server
-            TrackerServerConfig tracker_config;
+            /// The worker assigned to this peer connection
+            Worker* worker;
+            /// The index this struct occupies in "connected_peers", for debugging purposes.
+            int DEBUG_peerarray_index;
+        };
 
-            /// The self-appointed IP address used by this tracker server
-            sockaddr_in tracker_addr;
+        // Tracker server properties
 
-            /// The file descriptor for the listening socket of this tracker server
-            int tracker_socket_fd;
+        /// The configuration values for this tracker server
+        TrackerServerConfig tracker_config;
 
-            // Per-peer management data
+        /// The self-appointed IP address used by this tracker server
+        sockaddr_in tracker_addr;
 
-            /// A mapping between IP address strings and the slot the respective peer's connection data occupies
-            map<string, int> ip_index_mappings;
+        /// The file descriptor for the listening socket of this tracker server
+        int tracker_socket_fd;
 
-            /**
-             * A set of slots used to store each peer's connection data.
-             * If a slot returns nullopt, that slot is empty and can be used to accept a new peer.
-             */
-            optional<peer_connection*> connected_peers[MAX_PEERS];
+        // Per-peer management data
 
-            /// The next available slot in "connected_peers" that can be filled with a peer's connection data
-            atomic<int>* next_peer_index;
+        /// A mapping between IP address strings and the slot the respective peer's connection data occupies
+        map<string, int> ip_index_mappings;
 
-            /// The thread used to listen for and accept/decline peer connections
-            thread* peer_listener;
+        /**
+         * A set of slots used to store each peer's connection data.
+         * If a slot returns nullopt, that slot is empty and can be used to accept a new peer.
+         */
+        optional<peer_connection*> connected_peers[MAX_PEERS];
 
-            /// The thread used to dispose of terminated peer connection data and free up slots for new peers
-            thread* peer_connection_manager;
+        /// The next available slot in "connected_peers" that can be filled with a peer's connection data
+        atomic<int>* next_peer_index;
 
-            /// A server-wide kill switch used to terminate all existing peer connections and clean up resources
-            atomic<bool>* killswitch;
+        /// The thread used to listen for and accept/decline peer connections
+        thread* peer_listener;
 
-        public:
-            /**
-             * Creates a new tracker server with the default configuration
-             */
-            Tracker();
+        /// The thread used to dispose of terminated peer connection data and free up slots for new peers
+        thread* peer_connection_manager;
 
-            /**
-             * Creates a new tracker server with a custom configuration
-             * @param trackerConfig The configuration values for the tracker server
-             */
-            Tracker(TrackerServerConfig trackerConfig);
+        /// A server-wide kill switch used to terminate all existing peer connections and clean up resources
+        atomic<bool>* killswitch;
 
-            /**
-             * Clean up resources used by this tracker server
-             */
-            ~Tracker();
+      public:
+        /**
+         * Creates a new tracker server with the default configuration
+         */
+        Tracker();
 
-        private:
-            /**
-             * Common code used in both constructors
-             */
-            void construct();
+        /**
+         * Creates a new tracker server with a custom configuration
+         * @param trackerConfig The configuration values for the tracker server
+         */
+        Tracker(TrackerServerConfig trackerConfig);
 
-            /**
-             * Listens for potential peers until the killswitch is activated
-             * @param on_error The function to invoke if/when an error occurs
-             */
-            void listen_for_peers(NET_ERROR_HANDLER on_error);
+        /**
+         * Clean up resources used by this tracker server
+         */
+        ~Tracker();
 
-            /**
-             * Checks for the lowest open peer slot and finishes clearing memory occupied by completed peer connections. Repeats this process until the killswitch is activated.
-             */
-            void manage_peer_connections();
+      private:
+        /**
+         * Common code used in both constructors
+         */
+        void construct();
 
-            /**
-             * Initializes a peer connection and starts a worker thread for it
-             * @param peer_fd The file descriptor for the peer's socket
-             * @param peer_ipv4 The IPv4 address of the peer
-             */
-            void open_peer_connection(int peer_fd, sockaddr_in peer_ipv4);
+        /**
+         * Listens for potential peers until the killswitch is activated
+         * @param on_error The function to invoke if/when an error occurs
+         */
+        void listen_for_peers(NET_ERROR_HANDLER on_error);
 
-            ///**
-            // * Receives messages from a peer until its connection closes
-            // * @param connection_data The connection data for the peer this worker thread is for
-            // */
-            //void peer_worker_task(peer_connection* connection_data);
+        /**
+         * Checks for the lowest open peer slot and finishes clearing memory occupied by completed peer connections. Repeats this process until the killswitch is activated.
+         */
+        void manage_peer_connections();
 
-        public:
-            /**
-             * Determines whether this tracker server is currently listening for peers
-             */
-            bool is_listening();
+        /**
+         * Initializes a peer connection and starts a worker thread for it
+         * @param peer_fd The file descriptor for the peer's socket
+         * @param peer_ipv4 The IPv4 address of the peer
+         */
+        void open_peer_connection(int peer_fd, sockaddr_in peer_ipv4);
 
-            /**
-             * Attempts to initialize the socket this tracker server will use
-             * @return true if the tracker server is ready to listen; otherwise, false
-             */
-            bool try_init();
+        ///**
+        // * Receives messages from a peer until its connection closes
+        // * @param connection_data The connection data for the peer this worker thread is for
+        // */
+        // void peer_worker_task(peer_connection* connection_data);
 
-            /**
-             * Starts a thread that listens for peers and creates worker threads when a connection with a peer is established
-             * @param on_error The function to call if an error occurs while listening
-             * @return true if the thread is started; otherwise, false
-             */
-            bool try_listen_for_peers(NET_ERROR_HANDLER on_error);
+      public:
+        /**
+         * Determines whether this tracker server is currently listening for peers
+         */
+        bool is_listening();
 
-            /**
-             * Closes all existing connections with peers and shuts down the tracker server
-             */
-            void close_server();
+        /**
+         * Attempts to initialize the socket this tracker server will use
+         * @return true if the tracker server is ready to listen; otherwise, false
+         */
+        bool try_init();
+
+        /**
+         * Starts a thread that listens for peers and creates worker threads when a connection with a peer is established
+         * @param on_error The function to call if an error occurs while listening
+         * @return true if the thread is started; otherwise, false
+         */
+        bool try_listen_for_peers(NET_ERROR_HANDLER on_error);
+
+        /**
+         * Closes all existing connections with peers and shuts down the tracker server
+         */
+        void close_server();
     };
-}
+} // namespace peer_to_peer

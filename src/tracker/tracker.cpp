@@ -1,6 +1,6 @@
+#include "tracker.hpp"
 #include "../util/networking.hpp"
 #include "files.hpp"
-#include "tracker.hpp"
 
 // C++ Standard Library
 #include <cerrno>
@@ -25,8 +25,7 @@ namespace peer_to_peer
     {
         this -> tracker_config = TrackerServerConfig{
             10101,
-            "shared/"
-        };
+            "shared/"};
         construct();
     }
 
@@ -47,14 +46,14 @@ namespace peer_to_peer
         delete this -> killswitch;
     }
 
-    ///
+    /// Shared constructor body: zeroes peer slots and allocates shared state (next-slot index, killswitch)
     void Tracker::construct()
     {
         this -> tracker_addr = sockaddr_in();
         this -> tracker_socket_fd = -1;
 
         this -> ip_index_mappings = map<string, int>();
-        for(int i = 0; i < MAX_PEERS; i ++)
+        for(int i = 0; i < MAX_PEERS; i++)
         {
             connected_peers[i] = nullopt;
         }
@@ -65,11 +64,11 @@ namespace peer_to_peer
         this -> killswitch = new atomic<bool>(false);
     }
 
-    ///
+    /// Accept loop: select() with a short timeout so the killswitch is noticed, then open_peer_connection per peer
     void Tracker::listen_for_peers(NET_ERROR_HANDLER on_error)
     {
         int p = listen(this -> tracker_socket_fd, 5); // listen for max 5 clients in que. This prepares the FD to accept after connect from peer
-        if (p == -1)
+        if(p == -1)
         {
             on_error(errno, true, "Starting the peer listening thread");
             return;
@@ -88,12 +87,12 @@ namespace peer_to_peer
             FD_ZERO(&fds);
             FD_SET(this -> tracker_socket_fd, &fds);
 
-            //timeout (needed or select will stall)
+            // timeout (needed or select will stall)
             struct timeval tm;
             tm.tv_usec = 100;
             tm.tv_sec = 0;
 
-            int sel = select(this -> tracker_socket_fd + 1,&fds, NULL,NULL,&tm); //put timeout in final para
+            int sel = select(this -> tracker_socket_fd + 1, &fds, NULL, NULL, &tm); // put timeout in final para
             if(sel <= 0)
             {
                 continue;
@@ -102,21 +101,19 @@ namespace peer_to_peer
             in_addr addr;
             addr.s_addr = INADDR_ANY;
 
-            sockaddr_in sockaddr_client; //where the addr of an IP from a client is stored
+            sockaddr_in sockaddr_client; // where the addr of an IP from a client is stored
             sockaddr_client.sin_family = AF_INET;
             sockaddr_client.sin_addr = addr;
             sockaddr_client.sin_port = this -> tracker_addr.sin_port;
 
-            socklen_t sockklen;
-            sockklen = 4;
+            socklen_t sockklen = sizeof(sockaddr_client);
 
             int peer_fd = accept(
                 this -> tracker_socket_fd,
                 (struct sockaddr*)&sockaddr_client,
-                &sockklen
-            ); // accept any addr
+                &sockklen); // accept any addr
 
-            if (peer_fd != -1)
+            if(peer_fd != -1)
             {
                 sockaddr_in IPV4 = (sockaddr_in)sockaddr_client;
                 this -> open_peer_connection(peer_fd, IPV4);
@@ -130,7 +127,7 @@ namespace peer_to_peer
         _debug_print("Stopped listening for peers.");
     }
 
-    ///
+    /// Reaps completed workers, frees their slots, and tracks the lowest free slot; runs until killswitch with no peers left
     void Tracker::manage_peer_connections()
     {
         _debug_print("Peer management thread activated.");
@@ -144,7 +141,7 @@ namespace peer_to_peer
             this_thread::sleep_for(PEER_MANAGE_DELAY);
 
             foundActiveConnection = false;
-            for(int i = 0; i < MAX_PEERS; i ++)
+            for(int i = 0; i < MAX_PEERS; i++)
             {
                 if(connected_peers[i].has_value())
                 {
@@ -154,10 +151,6 @@ namespace peer_to_peer
                     Worker* worker = connection -> worker;
 
                     // Force peer worker thread to give up receiving bytes if the killswitch is activated
-                    //if(connection -> peer_fd != -1 && this -> killswitch -> load())
-                    //{
-                    //    shutdown(connection -> peer_fd, SHUT_RD);
-                    //}
                     if(this -> killswitch -> load())
                     {
                         worker -> signal_to_stop();
@@ -168,12 +161,12 @@ namespace peer_to_peer
                     {
                         // Guard against main thread/peer threads manipulating peer slots/data
                         guardian.lock();
-                        
+
                         ip_index_mappings.erase(worker -> peer_address);
 
                         // Delete peer connection data and free slot
                         // Use mutex to prevent access from main thread
-                        
+
                         _debug_print("Clearing peer data for slot " + to_string(i) + ".");
                         delete worker;
                         connection -> worker = nullptr;
@@ -200,39 +193,30 @@ namespace peer_to_peer
         _debug_print("Peer management thread ended.");
     }
 
-    ///
+    /// Takes the lowest free slot, spawns the peer's Worker, and records the IP->slot mapping
     void Tracker::open_peer_connection(int peer_fd, sockaddr_in peer_ipv4)
     {
-        //char ipaddr[INET_ADDRSTRLEN];
-        //inet_ntop(
-        //    AF_INET,
-        //    &(peer_ipv4.sin_addr),
-        //    ipaddr,
-        //    INET_ADDRSTRLEN
-        //); //get ip as char*
 
-        //std::string Ipaddrstring(ipaddr);
+        // std::string Ipaddrstring(ipaddr);
         int peer_index = next_peer_index -> load();
         Worker* worker = new Worker(
             peer_fd,
             peer_ipv4,
-            produce_file_list(),
-            true
-        );
+            this -> tracker_config,
+            true);
         peer_connection* new_connection = new peer_connection{
             worker,
-            peer_index
-        };
+            peer_index};
 
-        if(this -> ip_index_mappings.find(worker -> peer_address) == ip_index_mappings.end()) //does the IP already exist?
+        if(this -> ip_index_mappings.find(worker -> peer_address) == ip_index_mappings.end()) // does the IP already exist?
         {
-            ip_index_mappings[worker -> peer_address] = peer_fd; //if not, create new handle for IP
+            ip_index_mappings[worker -> peer_address] = peer_fd; // if not, create new handle for IP
         }
 
         //// i = 0; //debug for 1 peer
-        //peer_connection* new_connection = new peer_connection{ peer_fd, Ipaddrstring };
-        //new_connection -> worker_thread = new thread(&Tracker::peer_worker_task, this, new_connection);
-        //new_connection -> worker_thread -> detach(); //let it do its thang
+        // peer_connection* new_connection = new peer_connection{ peer_fd, Ipaddrstring };
+        // new_connection -> worker_thread = new thread(&Tracker::peer_worker_task, this, new_connection);
+        // new_connection -> worker_thread -> detach(); //let it do its thang
 
         this -> connected_peers[peer_index] = new_connection;
         new_connection -> DEBUG_peerarray_index = peer_index;
@@ -241,77 +225,42 @@ namespace peer_to_peer
         // Find the next available slot for a peer connection
         do
         {
-            peer_index ++;
-        }
-        while(this -> connected_peers[peer_index].has_value());
+            peer_index++;
+        } while(this -> connected_peers[peer_index].has_value());
         next_peer_index -> store(peer_index);
     }
 
-    /////
-    //void Tracker::peer_worker_task(peer_connection* connection_data)
-    //{
-    //    char buf[MAX_MESSAGE_BUFFER_SIZE];
-    //    while (!this -> killswitch -> load())
-    //    {
-    //        this_thread::sleep_for(PEER_WORK_DELAY);
-//
-    //        fill_n(buf, MAX_MESSAGE_BUFFER_SIZE, '\0');
-    //        int recvBytes = recv(connection_data -> peer_fd, buf, sizeof(buf), 0);
-    //        if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
-    //        {
-    //            break;
-    //        }
-//
-    //        std::string str(buf); // convert buf to a string
-    //        if(connection_data -> last_message.has_value())
-    //            connection_data -> last_message = (connection_data -> last_message.value()) + str;
-    //        else
-    //            connection_data -> last_message = str;
-//
-    //        // output string (debug)
-    //        std::cout << "["<< connection_data -> DEBUG_peerarray_index << "]" << "["<< recvBytes << "]"<< str << " : " << connection_data -> last_message . value_or("<null>") << std::endl;
-    //        
-    //    }
-//
-    //    // Close peer connection before end of thread
-    //    if(connection_data -> peer_fd != -1)
-    //    {
-    //        close(connection_data -> peer_fd);
-    //        connection_data -> peer_fd = -1;
-    //    }
-    //    connection_data -> completed = true;
-    //}
-
-    ///
+    /// Returns whether the tracker is currently accepting peers (accept thread exists)
     bool Tracker::is_listening()
     {
         return this -> peer_listener != nullptr;
     }
 
-    ///
+    /// Creates/binds the listening socket via make_connection_list(port) candidates; on success starts the peer-management thread
     bool Tracker::try_init()
-    {   
+    {
         if(this -> tracker_socket_fd >= 0)
             return false;
 
         _debug_print("Attempting to initialize tracker server...");
-        addrinfo* addrList = make_connection_list(this -> tracker_config.port); 
+        addrinfo* addrList = make_connection_list(this -> tracker_config.port);
 
-        for(addrinfo* addr = addrList; addr; addr = addrList->ai_next)
+        for(addrinfo* addr = addrList; addr; addr = addrList -> ai_next)
         {
             // try the socket
-            this -> tracker_socket_fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-            if(this -> tracker_socket_fd < 0) continue;
-        
+            this -> tracker_socket_fd = socket(addr -> ai_family, addr -> ai_socktype, addr -> ai_protocol);
+            if(this -> tracker_socket_fd < 0)
+                continue;
+
             // get around the "bind address already in use"
             int optval = 1;
             setsockopt(this -> tracker_socket_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-            //setsockopt(this -> tracker_socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+            // setsockopt(this -> tracker_socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
             // try the bind
-            int bind_status = bind(this -> tracker_socket_fd, addr->ai_addr, addr->ai_addrlen);
-            if (bind_status >= 0) // success, save and stop going through the list
-            { 
+            int bind_status = bind(this -> tracker_socket_fd, addr -> ai_addr, addr -> ai_addrlen);
+            if(bind_status >= 0) // success, save and stop going through the list
+            {
                 this -> peer_connection_manager = new thread(&Tracker::manage_peer_connections, this);
 
                 _debug_print("Successfully initialized tracker server.");
@@ -326,7 +275,7 @@ namespace peer_to_peer
         return false;
     };
 
-    ///
+    /// Starts the accept-loop thread (listen_for_peers); fails if the socket is down or already listening
     bool Tracker::try_listen_for_peers(NET_ERROR_HANDLER on_error)
     {
         if(this -> tracker_socket_fd < 0)
@@ -345,7 +294,7 @@ namespace peer_to_peer
         return true;
     }
 
-    ///
+    /// Raises the killswitch, joins the accept and management threads, and closes the listening socket
     void Tracker::close_server()
     {
         if(this -> tracker_socket_fd < 0)
@@ -353,27 +302,12 @@ namespace peer_to_peer
 
         _debug_print("Closing tracker server...");
         this -> killswitch -> store(true);
-        //shutdown(this -> tracker_socket_fd, SHUT_RD);
 
         // Wait for peer listening thread to close
         wait_and_dispose_thread(this -> peer_listener);
-        //if(this -> peer_listener -> joinable())
-        //{
-        //    this -> peer_listener -> join();
-        //}
-//
-        //delete this -> peer_listener;
-        //this -> peer_listener = nullptr;
 
         // Wait for all peer connections to be terminated before closing the socket
         wait_and_dispose_thread(this -> peer_connection_manager);
-        //if(this -> peer_connection_manager -> joinable())
-        //{
-        //    this -> peer_connection_manager -> join();
-        //}
-
-        //delete this -> peer_connection_manager;
-        //this -> peer_connection_manager = nullptr;
 
         this -> killswitch -> store(false);
 
@@ -381,4 +315,4 @@ namespace peer_to_peer
         this -> tracker_socket_fd = -1;
         _debug_print("Tracking server closed.");
     }
-}
+} // namespace peer_to_peer

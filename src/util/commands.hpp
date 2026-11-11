@@ -5,7 +5,7 @@
 using namespace std;
 
 namespace peer_to_peer
-{   
+{
     /// The character used to denote the beginning of a command string
     static constexpr char CH_COMMAND_OPEN = '<';
 
@@ -21,7 +21,7 @@ namespace peer_to_peer
      */
     bool try_get_command_str(char buffer[], size_t length, string* out_cmd_str);
 
-     /**
+    /**
      * Utility method used to compare a command string with a given command name
      * @param command_str The user-provided command string to check
      * @param command_name The name of the command being checked for
@@ -31,4 +31,4 @@ namespace peer_to_peer
      * @return true if the command string starts with the specified command name; otherwise, false
      */
     bool command_compare(const string& command_str, const string& command_name, size_t* out_cutoff_index);
-}
+} // namespace peer_to_peer
