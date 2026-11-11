@@ -1,21 +1,8 @@
 #ifndef UTIL_HPP
 #define UTIL_HPP
 
-// std
-#include <string>
-#include <vector>
-#include <filesystem>
-using namespace std;
-using namespace filesystem;
-
-// unix
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
-// TODO: ensure this library is ok with the TA/professor.
-// Ships with linux since Debian GNU/kFreeBSD days but still technically third party.
-#include <md5.h> 
+// Utility functions and wrappers for general usage 
+#include "includes.hpp"
 
 // returns list of configurations that can start an ipv4 tcp server to bind to
 // returns NULL on error
@@ -39,24 +26,45 @@ struct addrinfo* make_connection_list(const char* port) {
 }
 
 
-// split a string into vectors around 'delim'
+// split a string into vectors around quotation marks.
+// If double quotes used, string will accept single quotes and vice versa
+// Also allows backslashes to use double quotes in double quotes.
+// After the quotations, will split around whitespace.
+// Allows commans to be used as seperators outside of quotations too
+// Sets err_status=true on errors like unclosed quotations or unknown characters
 // ---------------------------------------------------------------------
-vector<string> strsplit(string& str, char delim = ' ') {
-  // init
+vector<string> str_to_args(string& str, bool& err_status) {
+  // sanitize and init
   if(str.empty()) return vector<string>{};
+  bool dquotes = false, quotes = false, escape = false;
   vector<string> ret = {};
-  int prev = 0;
+  string current = "";
 
-  // loop over finding the substr and adding to ret
-  for(int tmp = 0; tmp < std::string::npos; prev = tmp+1) {
-    tmp = str.find(delim, prev);
-    if(tmp >= std::string::npos) break;
-    size_t len = tmp - prev;
-    ret.push_back(str.substr(prev, len));
+  // while looping over the string
+  for(unsigned char c : str) {
+    // special characters
+    if((c == '"') && (!quotes) && (!escape)) dquotes = !dquotes;      // handle double quotations
+    else if((c == '\'') && (!dquotes) && (!escape)) quotes = !quotes; // handle single quotations
+    else if(c == '\\' && !escape) {escape = true; continue;}          // the escape/backslash 
+    else if(isspace(c) && (!quotes) && (!dquotes) && (!escape)) {     // whitespace
+      ret.push_back(current);
+      current.clear();
+    } else if(isprint(c)) current.push_back(c);                       // normal characters
+    else {                                                            // unkown, unprintable characters
+      err_status = true;
+      fprintf(stderr, "WARNING - Invalid character \"%du\"-> %s:%d\n", c, __FILE__, __LINE__);
+      return ret;
+    } 
+    escape = false;
   }
 
-  // finish return
-  ret.push_back(str.substr(prev));
+  // sanitize and push last string if there is any left
+  if(quotes || dquotes || escape) {
+    fprintf(stderr, "WARNING - Unclosed quotations or stray backslash -> %s:%d\n", __FILE__, __LINE__);
+    err_status = true;
+    return ret;
+  }
+  if(!current.empty()) ret.push_back(current);
   return ret;
 }
 
@@ -157,6 +165,103 @@ long int port_from_addrinfo(addrinfo* info) {
 // send string to socket
 ssize_t send_string(int sockfd, string& msg) {
   return send(sockfd, msg.c_str(), msg.length(), 0);
+}
+
+// Turn MSG -> <MSG>\n
+// ---------------------------------------------
+string encapsulate(string msg) {
+  const static string begin_mark = "<";
+  msg = begin_mark + msg + ">\n";
+  return msg;
+}
+
+// Turn <MSG>\n -> MSG
+// Sets status false if wrong format, true otherwise.
+// Accepts "<>\n" as correct empty string
+// ---------------------------------------------
+bool decapsulate(string& msg) {
+  // '<'
+  if(msg.empty()) return false;
+  if(msg.front() != '<') return false;
+  msg.erase(0, 1);
+
+  // '\n'
+  if(msg.empty()) return false;
+  if(msg.back() != '\n') return false;
+  msg.pop_back();
+
+  // '>'
+  if(msg.empty()) return false;
+  if(msg.back() != '>') return false;
+  msg.pop_back();
+
+  // success
+  return true;
+}
+
+// check if a given string is a valid number fast
+// ---------------------------------------------
+bool valid_uint(string& alleged_number) {
+  // sanitize 
+  if(alleged_number.empty()) return false;
+
+  // convert and see
+  errno = 0;
+  char* endptr = NULL;
+  strtoumax(alleged_number.c_str(), &endptr, 10); 
+  return ((*endptr) == '\0') && (endptr != alleged_number.c_str()) && (!errno);
+}
+
+
+// check if a given string is a valid md5 fast
+// ---------------------------------------------
+bool valid_md5(string& alleged_md5) {
+  // sanitize  and split md5 string into pieces
+  if(alleged_md5.length() != 32) return false;
+  for(char c : alleged_md5) {
+    bool valid_letter = (c >= 'a') || (c >= 'A');
+    valid_letter &= (c <= 'f') || (c <= 'F');
+    valid_letter |= isdigit(c);
+    if(!valid_letter) return false;
+  }
+  // success
+  return true;
+}
+
+
+// Check if following are valid ip and port number
+// ---------------------------------------------
+bool valid_address(string ip, string port) {
+  // sanitize and init
+  if(!valid_uint(port)) return false; // fastest one
+  struct sockaddr_in bin_ipv4;
+  struct sockaddr_in6 bin_ipv6;
+
+  // convert and see
+  if(!inet_pton(AF_INET, ip.c_str(), &bin_ipv4)) return false;
+  if(!inet_pton(AF_INET, ip.c_str(), &bin_ipv6)) return false;
+  return true;
+}
+
+// split a string around some given char delim
+// will assume multiple delims in a rows as empty strings
+// -----------------------------------------------------
+vector<string> strsplit(string& str, char delim = ' ') {
+  //init
+  vector<string> ret;
+  string tmp = "";
+
+  // process 
+  for(char c : str) {
+    if(c == delim) {
+      ret.push_back(tmp);
+      tmp.clear();
+    } else tmp.push_back(c);
+  }
+  if(!tmp.empty()) ret.push_back(tmp);
+
+  // finish
+  return ret;
 }
 
 

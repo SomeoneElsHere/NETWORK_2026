@@ -1,3 +1,5 @@
+
+/*
 #include <cstring>
 #include <iostream>
 #include <netinet/in.h>
@@ -11,6 +13,9 @@
 #include <map>
 #include <arpa/inet.h>
 #include "lib/util.hpp"
+*/
+#include "lib/includes.hpp"
+#include <iostream>
 // TOTAL TODOS
 // Line 21: Verify peersockets and peerinput has proper string data
 // Line 52: Add Multithreading to process multiple peers at the same time
@@ -21,6 +26,8 @@ public:
     sockaddr_in TrackerAddr;
     int TrackerSocket = 0;
     // insert an empty string in the socket/ array if they leave pls :D - Natalie
+    pthread_mutex_t worker_lock = PTHREAD_MUTEX_INITIALIZER; // workers will use this to stay sync'd                                                
+    list<string> tracker_files = {};// the strings for quickly listing      
     
 
     std::map<std::string, std::string> PeerInputStore = std::map<std::string, std::string>();
@@ -162,13 +169,20 @@ public:
             
             // i = 0; //debug for 1 peer
             PeerSockets[index] = q; // insert the ith peer fd at the last index.
+            /*
             acceptArgs arg;
             arg.index = index;
             arg.IPADDR = Ipaddrstring;
             std::thread t = std::thread(&tracker::Accept,this,arg);
-            
             t.detach(); //let it do its thang
-            
+            */
+            char host[NI_MAXHOST];                                                                                                                         
+            int name_error = getnameinfo((sockaddr*)&sockaddr_client, sockklen, host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);                                             
+            if(!name_error) printf("New connection from %s\n", host);                                                                                    
+            pthread_t tid;                                                                                                                               
+            TrackerBox box = { tracker_files, worker_lock, q};                                                                              
+            pthread_create(&tid, NULL, proc_tracker_all, &box);            
+            //TODO: handle that tid afterwards
         }
     }
     void Accept(acceptArgs arg)

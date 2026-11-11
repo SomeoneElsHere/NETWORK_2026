@@ -61,3 +61,4 @@ run: $(EXE_NAMES)
 clean:
 	rm -f $(BUILD_DIR)*.out
 	rm -f $(BUILD_DIR)$(EXE_NAMES)
+	rm -f data/*
