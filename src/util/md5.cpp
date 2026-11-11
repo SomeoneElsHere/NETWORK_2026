@@ -13,6 +13,8 @@ using namespace std::filesystem;
 
 namespace peer_to_peer
 {
+    /* Adapted from Jankatay's "util.hpp" */
+
     ///
     optional<string> md5_of_file(const char* file) {
       char buf[MD5_DIGEST_STRING_LENGTH];

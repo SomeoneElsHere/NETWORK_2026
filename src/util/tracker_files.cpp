@@ -1,3 +1,6 @@
+#include "util/md5.hpp"
+#include "util/networking.hpp"
+#include "util/strings.hpp"
 #include "tracker_files.hpp"
 #include "networking.hpp"
 
@@ -18,7 +21,7 @@ namespace peer_to_peer
     /* Adapted from Jankatay's "trackerfile.hpp" */
 
     ///
-    list<string> list_trackers(string& target_folder)
+    list<string> list_trackers(const string& target_folder)
     {
         // init
         list<string> ret;
@@ -78,6 +81,47 @@ namespace peer_to_peer
     const int PINF_IND_BYTE_START = 1;
     const int PINF_IND_BYTE_END = 2;
     const int PINF_IND_TIMESTAMP = 3;
+
+    ///
+    bool TrackerFile::try_parse_from_args(vector<string> args, TrackerFile* out_trackerfile)
+    {
+        // Filesize
+        if(!valid_uint(args[1]))
+            return false;
+
+        // MD5 Hash
+        if(!valid_md5(args[3]))
+            return false;
+
+        // Peer IP Address & Port
+        if(!valid_address(args[4], args[5]))
+            return false;
+
+        if(out_trackerfile != nullptr)
+        {
+            size_t filesize = stoul(args[1]);
+
+            PeerInfo pinf;
+            pinf.addr = args[4];
+            pinf.port = stoi(args[5]);
+            pinf.start_byte = 0;
+            pinf.end_byte = filesize;
+            pinf.time_stamp = time(NULL);
+
+            vector<PeerInfo> pinfs;
+            pinfs.push_back(pinf);
+
+            *out_trackerfile = TrackerFile(
+                args[0],
+                filesize,
+                args[2],
+                args[3],
+                pinfs
+            );
+        }
+
+        return true;
+    }
 
     /**
      * Attempts to parse one line of a tracker file being read from an input stream
@@ -308,18 +352,22 @@ namespace peer_to_peer
     {
         // IP Address
         stream.write(peer.addr.c_str(), peer.addr.length());
+        stream.put(TrackerFile::CH_KEY_DELIMITER);
 
         // Port
         string num_str = to_string(peer.port);
         stream.write(num_str.c_str(), num_str.length());
+        stream.put(TrackerFile::CH_KEY_DELIMITER);
         
         // Start Byte
         num_str = to_string(peer.start_byte);
         stream.write(num_str.c_str(), num_str.length());
+        stream.put(TrackerFile::CH_KEY_DELIMITER);
         
         // End Byte
         num_str = to_string(peer.end_byte);
         stream.write(num_str.c_str(), num_str.length());
+        stream.put(TrackerFile::CH_KEY_DELIMITER);
 
         // Timestamp
         num_str = to_string(peer.time_stamp);
@@ -345,8 +393,8 @@ namespace peer_to_peer
         if(!try_write_kvp(stream, KEY_FILESIZE, to_string(this -> get_filesize())))
             return false;
 
-        // Description (optional)
-        if(this -> description.has_value() && !try_write_kvp(stream, KEY_DESCRIPTION, this -> get_description().value()))
+        // Description (optional, defaults to empty)
+        if(!try_write_kvp(stream, KEY_DESCRIPTION, this -> get_description().value_or("")))
             return false;
 
         // MD5 hash
@@ -362,6 +410,7 @@ namespace peer_to_peer
         {
             if(!try_write_peerinfo(stream, pinf))
                 return false;
+            stream.put('\n');
         }
 
         return true;

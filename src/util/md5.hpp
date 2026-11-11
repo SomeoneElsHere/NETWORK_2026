@@ -9,6 +9,8 @@ using namespace std::filesystem;
 
 namespace peer_to_peer
 {
+    /* Adapted from Jankatay's "util.hpp" */
+
     /**
      * Wrapper function to calculate the MD5 of a file easily
      * @param file The filename of the file to calculate an MD5 hash for

@@ -64,9 +64,15 @@ namespace peer_to_peer::tracker
             /// Whether this worker should terminate ASAP
             atomic<bool> killswitch;
 
+            /// An identifier string for the peer this worker is assigned to
+            string peer_str;
+
         public:
             /// The IP address of the peer this worker is assigned to
             const string peer_address;
+
+            /// The port of the peer this worker is assigned to
+            const uint16_t peer_port;
 
             /// Whether to close the socket file descriptor when this worker completes its work thread
             const bool close_fd_on_completion;
@@ -112,6 +118,12 @@ namespace peer_to_peer::tracker
             //static bool try_create_worker_for(int peer_fd, sockaddr_in peer_ipv4, bool close_fd_on_completion, Worker* out_worker);
 
             /**
+             * Retrieves an identifier string for the peer this worker is assigned to
+             * @return 
+             */
+            string get_peer_str();
+
+            /**
              * Checks whether this worker has completed its work with its assigned peer
              * @return true if this worker has completed its work with its assigned peer and is ready to be disposed of; otherwise, false
              */
@@ -144,6 +156,13 @@ namespace peer_to_peer::tracker
              * Sends a list containing all tracker files accessible by this worker
              */
             void handle_req_list();
+
+            /**
+             * Sends a status response to the assigned peer for a given command
+             * @param command_name The name of the command that the result is for
+             * @param result The result string
+             */
+            void send_result_string(const string& command_name, const string& result);
 
             /**
              * Attempts to create a new tracker file using a set of parameters passed by this worker's assigned peer

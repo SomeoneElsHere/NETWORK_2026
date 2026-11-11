@@ -1,5 +1,7 @@
 #include "misc.hpp"
 
+#include <mutex>
+
 #ifdef DEBUG_PRINT
 #include <iostream>
 #endif
@@ -45,6 +47,8 @@ namespace peer_to_peer
             return;
 
         // Wait for thread to complete
+        mutex guardian;
+        guardian.lock();
         if(t -> joinable())
         {
             t -> join();
@@ -52,5 +56,6 @@ namespace peer_to_peer
 
         delete t;
         t = nullptr;
+        guardian.unlock();
     }
 }

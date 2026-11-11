@@ -1,7 +1,13 @@
+#include "util/commands.hpp"
 #include "util/misc.hpp"
 #include "util/networking.hpp"
+#include "util/strings.hpp"
 #include "peer.hpp"
 
+// C++ Standard Library
+#include <iostream>
+
+// Unix Specification
 #include <unistd.h>
 
 using namespace std;
@@ -25,6 +31,7 @@ namespace peer_to_peer
             1
         };
         this -> tracker_socket_fd = -1;
+        this -> tracker_listener = nullptr;
 
         this -> killswitch = false;
         this -> actively_listening = false;
@@ -35,6 +42,7 @@ namespace peer_to_peer
     {
         this -> client_config = clientConfig;
         this -> tracker_socket_fd = -1;
+        this -> tracker_listener = nullptr;
         
         this -> killswitch = false;
         this -> actively_listening = false;
@@ -43,8 +51,7 @@ namespace peer_to_peer
     ///
     Peer::~Peer()
     {
-        if(this -> tracker_socket_fd >= 0)
-            this -> close_tracker_connection();
+        this -> close_peer();
     }
 
     constexpr int MAX_MSG_SIZE = 255;
@@ -56,19 +63,88 @@ namespace peer_to_peer
         this -> actively_listening = true;
 
         char buf[MAX_MSG_SIZE];
-        while(!(this -> killswitch.load()))
+        bool terminated = false;
+        while(!(this -> killswitch.load()) && !terminated)
         {
             this_thread::sleep_for(TRACKER_LISTEN_DELAY);
 
-            fill_n(buf, MAX_MSG_SIZE, '\0');
-            int recvBytes = recv(this -> tracker_socket_fd, buf, sizeof(buf)-1, 0);
-            if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
+            string received_str;
+            if(!try_receive_string(this -> tracker_socket_fd, buf, MAX_MSG_SIZE, &received_str))
             {
                 _debug_print("Connection suddenly terminated.");
                 break;
             }
+            //fill_n(buf, MAX_MSG_SIZE, '\0');
+            //int recvBytes = recv(this -> tracker_socket_fd, buf, sizeof(buf)-1, 0);
+            //if (recvBytes <= 0) // if failure to recieve stop. Store data at buf
+            //{
+            //    _debug_print("Connection suddenly terminated.");
+            //    break;
+            //}
 
-            _debug_print("Received text '" + string(buf) + "'.");
+            string full_message = string(buf);
+            if(decapsulate(full_message))
+            {
+                cout << (CH_COMMAND_OPEN + full_message + CH_COMMAND_CLOSE + '\n');
+
+                vector<string> resp_args = str_split(full_message);
+                if(resp_args[0] == COMMAND_RESPONSE_PREFIX)
+                {
+                    // LIST Response
+                    if(resp_args[1] == "LIST")
+                    {
+                        int tf_count = stoi(resp_args[2]);
+                        _debug_print("Will receive " + resp_args[2] + " tracker files.");
+
+                        // <# filename filesize fileMD5>
+                        while(tf_count > 0)
+                        {
+                            if(!try_receive_string(this -> tracker_socket_fd, buf, MAX_MSG_SIZE, &received_str))
+                            {
+                                _debug_print("Connection suddenly terminated in the middle of list request.");
+                                terminated = true;
+                                break;
+                            }
+
+                            cout << full_message;
+                        }
+
+                        // <REP LIST END>
+                        if(!terminated)
+                        {
+                            if(!try_receive_string(this -> tracker_socket_fd, buf, MAX_MSG_SIZE, &received_str))
+                            {
+                                _debug_print("Connection suddenly terminated in the middle of list request.");
+                                terminated = true;
+                            }
+                            else if(!decapsulate(full_message))
+                            {
+                                _debug_print("Not encapsulated.");
+                                terminated = true;
+                            }
+                            else if(full_message != (COMMAND_RESPONSE_PREFIX + "LIST END"))
+                            {
+                                _debug_print("Final list item incorrect.");
+                                terminated = true;
+                            }
+                        }
+                        
+                    }
+                    // GET Response
+                    else if(resp_args[1] == "GET")
+                    {
+
+                    }
+                }
+                else if(resp_args[0] == "createtracker" || resp_args[1] == "updatetracker")
+                {
+                    // Nothing to do.
+                }
+            }
+            else
+            {
+                _debug_print("Received text '" + string(buf) + "'.");
+            }
         }
 
         if(this -> killswitch.load())
@@ -114,6 +190,7 @@ namespace peer_to_peer
         {
             this -> tracker_listener = new thread(&Peer::listen_to_tracker, this);
             this -> tracker_listener -> detach();
+            _debug_print("Tracker listener thread started.");
         }
         return check_for_error(success == -1, error_code);
     }
@@ -134,24 +211,26 @@ namespace peer_to_peer
     }
 
     ///
-    void Peer::close_tracker_connection()
+    void Peer::close_peer()
     {
-        if(this -> tracker_socket_fd < 0)
-            return;
-
-        _debug_print("Closing tracker server...");
-        this -> killswitch.store(true);
-
         // Wait for peer listening thread to close
-        wait_and_dispose_thread(this -> tracker_listener);
+        if(this -> tracker_listener != nullptr)
+        {  
+            this -> killswitch.store(true);
+            _debug_print("Closing tracker server connection...");
+            wait_and_dispose_thread(this -> tracker_listener);
+            this -> killswitch.store(false);
 
-        this -> killswitch.store(false);
+            _debug_print("Connection to tracking server closed.");
+        }
 
-        close(this -> tracker_socket_fd);
-        this -> tracker_socket_fd = -1;
-        _debug_print("Tracking server closed.");
-    
-        close(this -> tracker_socket_fd);
-        this -> tracker_socket_fd = -1;
+        // Close peer socket
+        if(this -> tracker_socket_fd < 0)
+        {
+            _debug_print("Closing socket...");
+            close(this -> tracker_socket_fd);
+            this -> tracker_socket_fd = -1;
+            _debug_print("Socket closed.");
+        }
     }
 }

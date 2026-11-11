@@ -40,6 +40,9 @@ namespace peer_to_peer
             /// A kill switch used to terminate the connection to the tracker server and clean up resources
             atomic<bool> killswitch;
 
+            /// Whether the tracker listener thread has completed
+            //bool completed;
+
         public:
             /**
              * Creates a new peer with the default client thread configuration
@@ -94,8 +97,9 @@ namespace peer_to_peer
             bool try_send_to_tracker(std::string message, int len, int* error_code);
 
             /**
-             * Closes the connection with the tracker server
+             * Closes the connection with the tracker server (if one was established)
+             * and closes the socket (if one was opened)
              */
-            void close_tracker_connection();
+            void close_peer();
     };
 }

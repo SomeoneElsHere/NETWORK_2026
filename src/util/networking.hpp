@@ -20,6 +20,16 @@ namespace peer_to_peer
     /// The default port used by the tracker server for listening
     static constexpr int16_t TRACKER_PORT = 10101;
 
+    /**
+     * Attempts to receive a string from a networked socket
+     * @param sockfd The socket to try receiving a string from
+     * @param buffer The raw character buffer to store the string's characters in
+     * @param buffer_size The size of the specified buffer
+     * @param received_str The memory location to store the received string; pass nullptr to skip creation of the string
+     * @return true if bytes were received and a string could be created; false if 0 bytes were received (usually indicates that socket is terminated)
+     */
+    bool try_receive_string(int sockfd, char buffer[], size_t buffer_size, string* received_str);
+
     /* Adapted from Jankatay's "util.hpp" */
     
     /**

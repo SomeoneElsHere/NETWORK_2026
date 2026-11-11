@@ -59,9 +59,7 @@ int main()
     }
     while(sentSuccess);
 
-    peer.close_tracker_connection();
-
-    cout << "Connection to tracker closed." << endl;
+    peer.close_peer();
 
     return 0;
 }

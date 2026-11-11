@@ -8,9 +8,15 @@ namespace peer_to_peer
     bool try_get_command_str(char buffer[], size_t length, string* out_cmd_str)
     {
         // Check if buffer starts with command opener char
+        //string raw_cmd_string(buffer, length);
+        //if(decapsulate(raw_cmd_string))
         if(buffer[0] == CH_COMMAND_OPEN)
         {
-            int end = length - 1;
+            //if(out_cmd_str != nullptr)
+            //    *out_cmd_str = raw_cmd_string;//string(buffer + sizeof(char), end - 1);
+            //
+            //return true;
+            int end = length - 1;//raw_cmd_string.length() - 1;
             bool foundCloser = false;
             while(end > 0)
             {
@@ -85,5 +91,43 @@ namespace peer_to_peer
         }
 
         return true;
+    }
+
+    /* Adapted from Jankatay's "util.hpp" */
+
+    ///
+    string encapsulate(const string& msg) {
+        return CH_COMMAND_OPEN + msg + CH_COMMAND_CLOSE + '\n';
+    }
+
+    ///
+    string encapsulate(string&& msg) {
+        string val = string(msg.length() + 3, '\0'); // 3 = <, >, \n
+        val[0] = CH_COMMAND_OPEN;
+        val.replace(1, msg.length(), msg, 0, msg.length());
+        val[val.length() - 2] = CH_COMMAND_CLOSE;
+        val[val.length() - 1] = '\n';
+        return val;
+    }
+
+    /// 
+    bool decapsulate(string& msg) {
+      // '<'
+      if(msg.empty()) return false;
+      if(msg.front() != CH_COMMAND_OPEN) return false;
+      msg.erase(0, 1);
+
+      // '\n'
+      if(msg.empty()) return false;
+      if(msg.back() != '\n') return false;
+      msg.pop_back();
+
+      // '>'
+      if(msg.empty()) return false;
+      if(msg.back() != CH_COMMAND_CLOSE) return false;
+      msg.pop_back();
+
+      // success
+      return true;
     }
 }

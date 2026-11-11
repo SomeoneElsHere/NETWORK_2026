@@ -38,7 +38,7 @@ namespace peer_to_peer
      * @param target_folder The directory to search for tracker files
      * @return A list containing all found tracker files in the directory; if an error occurs, returns an empty list
      */
-    list<string> list_trackers(string& target_folder);
+    list<string> list_trackers(const string& target_folder);
 
     /* Alternate version of TrackerFile class */
 
@@ -102,6 +102,14 @@ namespace peer_to_peer
              * Cleans up resources relating to this tracker file
              */
             //~TrackerFile();
+
+            /**
+             * Attempts to parse a set of string arguments as a tracker file
+             * @param args The vector containing the string-based arguments to be parsed
+             * @param out_trackerfile The memory location to store the created TrackerFile object; pass nullptr to skip creation
+             * @return true if a tracker file was correctly parsed from the specified input stream; otherwise, false
+             */
+            static bool try_parse_from_args(vector<string> args, TrackerFile* out_trackerfile);
 
             /**
              * Attempts to parse an input stream's contents as a tracker file

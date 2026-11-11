@@ -1,8 +1,10 @@
+#include "util/misc.hpp"
 #include "util/networking.hpp"
 #include "tracker.hpp"
 
 // C++ Standard Library
 #include <cerrno>
+#include <filesystem>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -14,6 +16,7 @@
 #include <unistd.h>
 
 using namespace std;
+using namespace std::filesystem;
 
 using namespace peer_to_peer::tracker;
 
@@ -77,6 +80,7 @@ namespace peer_to_peer
         _debug_print("Listening for peers...");
         while(!(this -> killswitch -> load()))
         {
+            /* Adapted from SomeoneElsHere's tracker.cpp */
             this_thread::sleep_for(PEER_LISTEN_DELAY);
 
             // Max peer connection count has been hit, wait until a slot frees up to continue accepting connections
@@ -294,6 +298,25 @@ namespace peer_to_peer
             return false;
 
         _debug_print("Attempting to initialize tracker server...");
+
+        // Shared directory must exist
+        if(exists(this -> tracker_config.shared_directory))
+        {
+            if(!is_directory(this -> tracker_config.shared_directory))
+            {
+                _debug_print("An entry for '"+ this -> tracker_config.shared_directory +"' exists, but it is not a directory.");
+                return false;
+            }
+        }
+        else {
+            _debug_print("'" + this -> tracker_config.shared_directory + "' does not exist. Attempting to create it...");
+            if(!create_directory(this -> tracker_config.shared_directory))
+            {
+                _debug_print("Failed to create directory.");
+                return false;
+            }
+        }
+
         addrinfo* addrList = make_connection_list(this -> tracker_config.port); 
 
         for(addrinfo* addr = addrList; addr; addr = addrList->ai_next)
@@ -341,6 +364,7 @@ namespace peer_to_peer
         }
 
         this -> peer_listener = new thread(&Tracker::listen_for_peers, this, on_error);
+        this -> peer_listener -> detach();
         return true;
     }
 

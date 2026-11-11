@@ -1,3 +1,4 @@
+#include "util/commands.hpp"
 #include "util/tracker_files.hpp"
 #include "util/md5.hpp"
 
@@ -190,6 +191,17 @@ int md5_strings()
     }
 
     return 0;
+}
+
+/// Test method that demonstrates encapsulation and decapsulation
+int encap_decap()
+{
+    string input;
+
+    // Content
+    PROMPT("Content: ");
+
+    string encapsulated = encapsulate(std::move(input));
 }
 
 /* Program used for testing utility methods and other code without peer/tracker */

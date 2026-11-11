@@ -2,6 +2,7 @@
 #include "util/misc.hpp"
 #include "util/networking.hpp"
 #include "util/strings.hpp"
+#include "util/tracker_files.hpp"
 #include "worker.hpp"
 
 // C++ Standard Library
@@ -9,6 +10,8 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -20,6 +23,7 @@
 #include <unistd.h>
 
 using namespace std;
+using namespace std::filesystem;
 
 namespace peer_to_peer::tracker
 {
@@ -41,6 +45,7 @@ namespace peer_to_peer::tracker
         shared_directory(shared_directory),
         peer_fd(peer_fd),
         peer_address(ip_addr_str(peer_ipv4)),
+        peer_port(peer_ipv4.sin_port),
         close_fd_on_completion(close_fd_on_completion)
     {
         this -> work_thread = new thread(&Worker::work, this);
@@ -60,6 +65,15 @@ namespace peer_to_peer::tracker
         this -> wait_for_completion();
 
         delete this -> lock;
+    }
+
+    ///
+    string Worker::get_peer_str()
+    {
+        if(this -> peer_str.empty())
+            this -> peer_str += this -> peer_address + ':' + to_string(this -> peer_port);
+
+        return this -> peer_str;
     }
 
     ///
@@ -306,15 +320,45 @@ namespace peer_to_peer::tracker
     ///
     void Worker::handle_req_list()
     {
-        send_string(this -> peer_fd, "LIST REQUESTED");
-        _debug_print("REQ LIST");
+        list<string> tracker_files = list_trackers(this -> shared_directory);
+
+        // <REP LIST X>
+        string message = encapsulate(COMMAND_RESPONSE_PREFIX + "LIST " + to_string(tracker_files.size()));
+        send_string(this -> peer_fd, message);
+        message.clear();
+
+        // <# filename filesize fileMD5>
+        int num = 1;
+        for(string tracker_file : tracker_files)
+        {
+            message = encapsulate(to_string(num) + " " + tracker_file);
+            send_string(this -> peer_fd, message);
+            message.clear();
+            num ++;
+        }
+
+        // <REP END>
+        message = encapsulate(COMMAND_RESPONSE_PREFIX + "END");
+        send_string(this -> peer_fd, message);
+
+        cout << ("Peer " + this -> get_peer_str() + " requested tracker file list.") << endl;
     }
 
     ///
     void Worker::handle_get_tracker(const string& filename)
     {
-        send_string(this -> peer_fd, "GET '" + filename + "' REQUESTED");
-        _debug_print("GET: '" + filename + "'");
+        string message = encapsulate(COMMAND_RESPONSE_PREFIX + " GET BEGIN");
+
+        //send_string(this -> peer_fd, "GET '" + filename + "' REQUESTED");
+        //_debug_print("GET: '" + filename + "'");
+
+        cout << ("Peer " + this -> get_peer_str() + " requested tracker file for '" + filename + "'.") << endl;
+    }
+
+    ///
+    void Worker::send_result_string(const string& command_name, const string& result)
+    {
+        send_string(this -> peer_fd, encapsulate(command_name + " " + result));
     }
 
     ///
@@ -331,8 +375,51 @@ namespace peer_to_peer::tracker
             sep = true;
         }
 
-        
-        send_string(this -> peer_fd, "CREATE TRACKER FOR REQUESTED");
         _debug_print(cmdstr);
+
+        vector<string> args = ct_args;
+        /* Adapted from Jankatay's proc_create function in worker.hpp */
+
+        // get args
+        if(args.size() == 5) args.emplace(args.begin() + 2, string(""));
+        if(args.size() != 6) { // missing arguments
+            _debug_print("Missing arguments");
+            this -> send_result_string(COMMAND_TRACKER_CREATE, COMMAND_RESULT_FAIL);
+            return; // still the command was right, technically
+        }; 
+
+        /* My code again */
+        string tf_filename = this -> shared_directory + "/" + args[0] + TrackerFile::FILE_EXTENSION;
+        if(exists(tf_filename))
+        {
+            _debug_print("File already exists");
+            this -> send_result_string(COMMAND_TRACKER_CREATE, COMMAND_RESULT_FILE_ERROR);
+            return;
+        }
+
+        TrackerFile tf_obj;
+        if(TrackerFile::try_parse_from_args(args, &tf_obj))
+        {
+            bool success = false;
+
+            /* Jankatay came up with the idea to use a mutex here */
+            this -> lock -> lock();
+
+            ofstream tf_str(tf_filename);
+            if(tf_obj.try_write_to_stream(tf_str))
+            {
+                this -> send_result_string(COMMAND_TRACKER_CREATE, COMMAND_RESULT_SUCCESS);
+                success = true;
+            }
+            tf_str.close();
+
+            this -> lock -> unlock();
+
+            if(success)
+                return;
+        }
+        
+        this -> send_result_string(COMMAND_TRACKER_CREATE, COMMAND_RESULT_FAIL);
+        return;
     }
 }
