@@ -73,6 +73,35 @@ namespace peer_to_peer::tracker
              * @param md5 The actual file's computed MD5 hash
              */
             TrackerFile(string filename, string filesize, optional<string> description, string md5);
+
+            /**
+             * Serializes this tracker file into the exact on-disk format required by the project specification:
+             *   Filename: <name>
+             *   Filesize: <size>
+             *   Description: <desc>        (only when a description is present)
+             *   MD5: <md5>
+             *   #list of peers follows next
+             *   <ip>:<port>:<start>:<end>:<timestamp>   (one line per peer)
+             * @return The formatted contents of this tracker file
+             */
+            string to_file_contents() const;
+
+            /**
+             * Writes this tracker file to <directory>/<filename>.track, following the
+             * project specification's file naming convention ("<filename>.track").
+             * Creates the directory if it does not yet exist.
+             * @param directory The shared directory of the tracker server
+             * @return true if the file was written successfully; otherwise, false
+             */
+            bool save_to(const string& directory) const;
+
+            /**
+             * Attempts to parse a tracker file from disk, including its peer list.
+             * Lines beginning with '#' are ignored, per the project specification.
+             * @param path The full path of the .track file to load
+             * @return The parsed tracker file if successful; otherwise, nullopt
+             */
+            static optional<TrackerFile> try_load(const string& path);
     };
 
     /**
