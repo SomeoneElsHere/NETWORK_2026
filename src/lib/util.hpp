@@ -68,11 +68,23 @@ vector<string> str_to_args(string& str, bool& err_status) {
   return ret;
 }
 
+// calculate md5 of a given string
+// Returns garbage string on error
+// ---------------------------------------------------------------------
+string md5_from_data(string& data) {
+  char buf[MD5_DIGEST_STRING_LENGTH] = "";
+  MD5_CTX context = {};
+  MD5Init(&context);
+  MD5Data((const uint8_t*)data.c_str(), data.length(), buf);
+  MD5End(&context, NULL);
+  return string(buf);
+}
+
 // Wrapper to calculate md5 easily
-// Returns empty string on error
+// Returns garbage string on error
 // ---------------------------------------------------------------------
 string md5(const char* file) {
-  char buf[MD5_DIGEST_STRING_LENGTH];
+  char buf[MD5_DIGEST_STRING_LENGTH] = "";
   MD5_CTX context = {};
   MD5Init(&context);
   MD5File(file, buf);

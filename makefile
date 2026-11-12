@@ -14,7 +14,7 @@ EXE_NAMES = $(PEER_EXE) $(TRACKER_EXE)
 # ------------------------
 
 # Command format prefixes
-COMPILE = g++ $(COMMON_FLAGS) -c
+COMPILE = g++ $(COMMON_FLAGS) -c -g
 LINK = g++ $(COMMON_FLAGS) -o
 LIBS = -lmd #TODO: check this with TA/professor, look at lib/util.hpp for more info
 
@@ -23,6 +23,10 @@ LIBS = -lmd #TODO: check this with TA/professor, look at lib/util.hpp for more i
 
 # Ensure all executables are built when running "make"
 all: $(EXE_NAMES)
+	cp $(BUILD_DIR)/peer $(BUILD_DIR)/peer1/peer
+	echo "hello, world" > $(BUILD_DIR)/peer1/hello_world.txt
+	cp $(BUILD_DIR)/peer $(BUILD_DIR)/peer2/peer
+	cp $(BUILD_DIR)/peer $(BUILD_DIR)/peer3/peer
 
 # -- Peer program --
 # ------------------
@@ -34,7 +38,7 @@ $(BUILD_DIR)peer: $(PEER_OBJS)
 
 # peer.out
 $(BUILD_DIR)peer.out: $(SRC_DIR)peer.cpp
-	$(COMPILE) $(SRC_DIR)peer.cpp -o $(BUILD_DIR)peer.out
+	$(COMPILE) $(SRC_DIR)peer.cpp -o $(BUILD_DIR)peer.out -lmd
 
 # -- Tracker program --
 # ---------------------
@@ -61,4 +65,6 @@ run: $(EXE_NAMES)
 clean:
 	rm -f $(BUILD_DIR)*.out
 	rm -f $(BUILD_DIR)$(EXE_NAMES)
-	rm -f data/*
+	rm -f $(BUILD_DIR)/data/*
+	rm -f $(BUILD_DIR)/peer
+	rm -f $(BUILD_DIR)/peer{1,2,3}/*

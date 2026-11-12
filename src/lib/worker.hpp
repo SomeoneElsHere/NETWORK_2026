@@ -39,7 +39,7 @@ bool proc_list(string& cmd, int sockfd, list<string>& tracker_files, pthread_mut
 bool proc_get(vector<string>& cmd, int sockfd, pthread_mutex_t& worker_lock) {
   // init constants 
   static const string REP_GET_HEADER = encapsulate("REP GET BEGIN");
-  static const string REP_GET_FOOTER = encapsulate("REP GET END");
+  static const string REP_GET_FOOTER = "REP GET END";
   const char REP_GET_ERROR[] = "<REP GET FAIL>\n";
 
   // sanitize the command
@@ -56,8 +56,20 @@ bool proc_get(vector<string>& cmd, int sockfd, pthread_mutex_t& worker_lock) {
     return true;
   }
 
-  // Success, construct the string and send
-  string sendstr = REP_GET_HEADER + contents + REP_GET_FOOTER;
+  // Success, get the file md5
+  string md5str = "";
+  stringstream iss(contents);
+  for(string line; getline(iss, line);) {
+    bool valid_string = true;
+    vector<string> args = str_to_args(line, valid_string);
+    if(args.size() != 2) continue;
+    if(args.front() != "MD5:") continue;
+    md5str = args.back();
+    break;
+  }
+
+  // construct and send
+  string sendstr = REP_GET_HEADER + contents + encapsulate(REP_GET_FOOTER + " " + md5str);
   send_string(sockfd, sendstr);
   return true;
 }
@@ -87,6 +99,7 @@ bool proc_create(vector<string>& cmd, int sockfd, list<string>& tracker_files, p
 
   // sanitize some more
   bool valid_file = true;
+  string quickstring = (name + ' ') + (size + ' ') + hash;
   string contents = trackerfile_upper(name, size, desc, hash, valid_file);
   if((!valid_file) || (!valid_address(addr, port)) || (!valid_md5(hash)) || contents.empty()) {
     send(sockfd, REP_CREATE_FAIL, sizeof REP_CREATE_FAIL, 0);
@@ -95,9 +108,9 @@ bool proc_create(vector<string>& cmd, int sockfd, list<string>& tracker_files, p
   contents += (addr + ':') + (port + ":0:") + (size + ':') + to_string(time(NULL)) + "\n";
 
   // add the file
-  string quickstring = (name + ' ') + (size + ' ') + hash;
   pthread_mutex_lock(&worker_lock);
-  CREATE create_status = create_file(cmd[1], contents);
+  name.append(".track");
+  CREATE create_status = create_file(name, contents);
   if(create_status == CREATE::SUCCESS) tracker_files.push_back(quickstring);
   pthread_mutex_unlock(&worker_lock);
 
@@ -156,6 +169,7 @@ struct TrackerBox {
 };
 
 // thread function that reads all inputs and handles them
+#include <iostream>
 void* proc_tracker_all(void* tracker_box) {
   // unbox 
   TrackerBox* unbox = (TrackerBox*)tracker_box;
@@ -172,6 +186,8 @@ void* proc_tracker_all(void* tracker_box) {
   while((len = recv(sockfd, bufstr, bufsiz, 0)) > 0) {
     bufstr[len] = '\0'; // cut
     string str = string(bufstr);
+    printf("Peer at socket %d: %s\n", sockfd, bufstr);
+    fflush(stderr);
     if(!decapsulate(str)) continue; // not a command
     if(proc_list(str, sockfd, tracker_files, worker_lock)) continue;
     //TODO: make valid_string follow the convention
