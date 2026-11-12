@@ -66,8 +66,4 @@ run: $(EXE_NAMES)
 # Clean the build folder
 .PHONY: clean
 clean:
-	rm -f $(BUILD_DIR)*.out
-	rm -f $(BUILD_DIR)$(EXE_NAMES)
-	rm -f $(BUILD_DIR)/data/*
-	rm -f $(BUILD_DIR)/peer
-	rm -f $(BUILD_DIR)/peer*/*
+	rm -rf $(BUILD_DIR)/*
