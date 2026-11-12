@@ -118,6 +118,7 @@ void* upload(void* upload_box) {
   const int listen_sockfd = unbox->sockfd;
   FILE* fp = unbox->fp;
   int sockfd = -1;
+  fprintf(stderr, "File is currently being hosted\n");
   while((sockfd = accept(listen_sockfd, NULL, NULL)) >= 0) {
     // seek to start of the file
     fseek(fp, 0, SEEK_SET);
@@ -126,11 +127,13 @@ void* upload(void* upload_box) {
     char strbuf[strlen] = "";
     send(sockfd, SUCCESS, sizeof SUCCESS, 0);
     recv(sockfd, strbuf, strlen, 0); // get ack
+    fprintf(stderr, "Upload started\n");
     while(fgets(strbuf, strlen, fp)) {
       if(send(sockfd, strbuf, strnlen(strbuf, strlen), 0)) continue;
       fprintf(stderr, "ERROR -> Socket closed while still sending the file!!\n");
       break;
     }
+    fprintf(stderr, "Upload ended\n");
 
     // finish
     close(sockfd);
@@ -167,9 +170,11 @@ void* download(void* download_box) {
   }
   
   // Start listening and write to the file
+  fprintf(stderr, "Download started\n");
   while((len = recv(sockfd, strbuf, strlen, 0)) > 0) {
     fwrite(strbuf, sizeof strbuf[0], len, fp);
   }
+  fprintf(stderr, "Download finished\n");
 
   // finish
   close(sockfd);
@@ -243,7 +248,6 @@ void handle_potential_get(stringstream& ss) {
     return;
   }
   uintmax_t binary_port = strtoumax(port.c_str(), NULL, 10);
-  cout << "File " << filename << " @ " << addr << ':' << port << endl;
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   struct sockaddr_in addrin = {};
   socklen_t addrlen = sizeof addrin;

@@ -28,6 +28,7 @@ bool proc_list(string& cmd, int sockfd, list<string>& tracker_files, pthread_mut
 
   // prepare footer, end of protocol, can now send and exit.
   msg += encapsulate(REP_LIST_FOOTER);
+  fprintf(stderr, "Server -> Peer %d:\n%s", sockfd, msg.c_str());
   send_string(sockfd, msg);
   return true;
 }
@@ -52,6 +53,7 @@ bool proc_get(vector<string>& cmd, int sockfd, pthread_mutex_t& worker_lock) {
   string contents = get_tracker_file(filename);
   pthread_mutex_unlock(&worker_lock);
   if(contents.empty()) { // failure
+    fprintf(stderr, "Server -> Peer %d: %s\n", sockfd, REP_GET_ERROR);
     send(sockfd, REP_GET_ERROR, sizeof REP_GET_ERROR, 0);
     return true;
   }
@@ -70,6 +72,7 @@ bool proc_get(vector<string>& cmd, int sockfd, pthread_mutex_t& worker_lock) {
 
   // construct and send
   string sendstr = REP_GET_HEADER + contents + encapsulate(REP_GET_FOOTER + " " + md5str);
+  fprintf(stderr, "Server -> Peer %d:\n%s", sockfd, sendstr.c_str());
   send_string(sockfd, sendstr);
   return true;
 }
@@ -91,6 +94,7 @@ bool proc_create(vector<string>& cmd, int sockfd, list<string>& tracker_files, p
   // get args
   if(cmd.size() == 6) cmd.emplace(cmd.begin() + 3, string(""));
   if(cmd.size() != 7) { // missing arguments
+    fprintf(stderr, "Server -> Peer %d: %s\n", sockfd, REP_CREATE_FAIL);
     send(sockfd, REP_CREATE_FAIL, sizeof REP_CREATE_FAIL, 0);
     return true; // still the command was right, technically
   }; 
@@ -102,6 +106,7 @@ bool proc_create(vector<string>& cmd, int sockfd, list<string>& tracker_files, p
   string quickstring = (name + ' ') + (size + ' ') + hash;
   string contents = trackerfile_upper(name, size, desc, hash, valid_file);
   if((!valid_file) || (!valid_address(addr, port)) || (!valid_md5(hash)) || contents.empty()) {
+    fprintf(stderr, "Server -> Peer %d: %s\n", sockfd, REP_CREATE_FAIL);
     send(sockfd, REP_CREATE_FAIL, sizeof REP_CREATE_FAIL, 0);
     return true; // still the command was right, technically
   }
@@ -115,9 +120,16 @@ bool proc_create(vector<string>& cmd, int sockfd, list<string>& tracker_files, p
   pthread_mutex_unlock(&worker_lock);
 
   // send the output, do NOT combine the if(create_status == CREATE:SUCCESS) with if statement above
-  if(create_status == CREATE::EXISTS) send(sockfd, REP_CREATE_EXISTS, sizeof REP_CREATE_EXISTS, 0);
-  else if(create_status == CREATE::FAILURE) send(sockfd, REP_CREATE_FAIL, sizeof REP_CREATE_FAIL, 0);
-  else send(sockfd, REP_CREATE_SUCCESS, sizeof REP_CREATE_SUCCESS, 0);
+  if(create_status == CREATE::EXISTS) {
+    fprintf(stderr, "Server -> Peer %d:%s\n", sockfd, REP_CREATE_EXISTS);
+    send(sockfd, REP_CREATE_EXISTS, sizeof REP_CREATE_EXISTS, 0);
+  } else if(create_status == CREATE::FAILURE) {
+    fprintf(stderr, "Server -> Peer %d:%s\n", sockfd, REP_CREATE_FAIL);
+    send(sockfd, REP_CREATE_FAIL, sizeof REP_CREATE_FAIL, 0);
+  } else {
+    fprintf(stderr, "Server -> Peer %d:%s\n", sockfd, REP_CREATE_SUCCESS);
+    send(sockfd, REP_CREATE_SUCCESS, sizeof REP_CREATE_SUCCESS, 0);
+  }
 
   // finish
   return true;
@@ -155,6 +167,7 @@ bool proc_update(vector<string>& cmd, int sockfd, pthread_mutex_t& worker_lock){
   else if(contents.empty()) msg += "ferr";
   else msg += "fail";
   msg = encapsulate(msg);
+  fprintf(stderr, "Server -> Peer %d:\n%s", sockfd, msg.c_str());
   send_string(sockfd, msg);
 
   // finish
@@ -186,7 +199,7 @@ void* proc_tracker_all(void* tracker_box) {
   while((len = recv(sockfd, bufstr, bufsiz, 0)) > 0) {
     bufstr[len] = '\0'; // cut
     string str = string(bufstr);
-    printf("Peer at socket %d: %s\n", sockfd, bufstr);
+    printf("Peer %d -> Server: %s", sockfd, bufstr);
     fflush(stderr);
     if(!decapsulate(str)) continue; // not a command
     if(proc_list(str, sockfd, tracker_files, worker_lock)) continue;
@@ -196,6 +209,7 @@ void* proc_tracker_all(void* tracker_box) {
     if(proc_get(strs, sockfd, worker_lock)) continue;
     if(proc_create(strs, sockfd, tracker_files, worker_lock)) continue;
     if(proc_update(strs, sockfd, worker_lock)) continue;
+    fprintf(stderr, "Server -> Peer %d: Invalid Command\n", sockfd);
     send(sockfd, "invalid command\n", sizeof "invalid command\n", 0);
   }
   close(sockfd);
