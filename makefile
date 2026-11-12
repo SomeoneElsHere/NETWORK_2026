@@ -23,6 +23,9 @@ LIBS = -lmd #TODO: check this with TA/professor, look at lib/util.hpp for more i
 
 # Ensure all executables are built when running "make"
 all: $(EXE_NAMES)
+	mkdir $(BUILD_DIR)/peer1
+	mkdir $(BUILD_DIR)/peer2
+	mkdir $(BUILD_DIR)/peer3
 	cp $(BUILD_DIR)/peer $(BUILD_DIR)/peer1/peer
 	echo "hello, world" > $(BUILD_DIR)/peer1/hello_world.txt
 	cp $(BUILD_DIR)/peer $(BUILD_DIR)/peer2/peer
@@ -67,4 +70,4 @@ clean:
 	rm -f $(BUILD_DIR)$(EXE_NAMES)
 	rm -f $(BUILD_DIR)/data/*
 	rm -f $(BUILD_DIR)/peer
-	rm -f $(BUILD_DIR)/peer{1,2,3}/*
+	rm -f $(BUILD_DIR)/peer*/*
